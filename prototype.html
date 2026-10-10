@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>A4 Exam Cheat Sheet Maker (หน้า-หลัง)</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- SortableJS สำหรับลากย้ายการ์ดเนื้อหา -->
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+  <!-- Google Fonts: Sarabun -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      font-family: 'Sarabun', sans-serif;
+    }
+
+    /* จำลองขนาดกระดาษ A4 (210mm x 297mm) */
+    .a4-page {
+      width: 210mm;
+      min-height: 297mm;
+      max-height: 297mm;
+      padding: 8mm;
+      margin: 0 auto 20px auto;
+      background: white;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+      box-sizing: border-box;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Print Stylesheet สำหรับสั่งพิมพ์ลง A4 เป๊ะๆ */
+    @media print {
+      body {
+        background: transparent !important;
+        padding: 0 !important;
+      }
+      .no-print {
+        display: none !important;
+      }
+      .a4-page {
+        margin: 0 !important;
+        padding: 6mm !important;
+        box-shadow: none !important;
+        width: 100% !important;
+        height: 100vh !important;
+        max-height: 100vh !important;
+        page-break-after: always;
+        break-after: page;
+      }
+      /* ปิดการแสดงผลขอบไอคอนจัดการ */
+      .card-handle, .card-delete {
+        display: none !important;
+      }
+    }
+
+    /* สไตล์คีย์ลัด/สมการ */
+    .eq-box {
+      font-family: monospace;
+      letter-spacing: -0.3px;
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased p-4">
+
+  <!-- Control Bar ด้านบน (ไม่แสดงเวลาสั่งพิมพ์) -->
+  <header class="no-print max-w-[210mm] mx-auto mb-4 bg-white p-3 rounded-xl shadow-md border border-slate-200 flex flex-wrap items-center justify-between gap-3 sticky top-2 z-50">
+    <div class="flex items-center gap-2">
+      <span class="font-bold text-indigo-700 text-base">📑 A4 CheatSheet Maker</span>
+      <span class="text-xs bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded font-medium">แก้ไข & ลากย้ายได้อิสระ</span>
+    </div>
+
+    <div class="flex items-center flex-wrap gap-2 text-xs">
+      <!-- ปรับขนาดตัวอักษร -->
+      <label class="flex items-center gap-1 font-medium text-slate-600">
+        ขนาดฟอนต์:
+        <select id="fontSizeSelect" class="border border-slate-300 rounded px-2 py-1 bg-slate-50 focus:outline-none focus:ring-1 focus:ring-indigo-500">
+          <option value="text-[8.5px] leading-[1.25]">จิ๋วมาก (8.5px) - อัดแน่นสุด</option>
+          <option value="text-[9.5px] leading-[1.3]" selected>ปกติ (9.5px) - พอดี 2 หน้า</option>
+          <option value="text-[10.5px] leading-[1.35]">ใหญ่ (10.5px)</option>
+        </select>
+      </label>
+
+      <!-- ปุ่มเพิ่มการ์ดใหม่ -->
+      <button onclick="addNewCard(1)" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1 rounded border border-slate-300 font-medium transition">
+        + เพิ่มกล่อง (หน้า 1)
+      </button>
+      <button onclick="addNewCard(2)" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1 rounded border border-slate-300 font-medium transition">
+        + เพิ่มกล่อง (หน้า 2)
+      </button>
+
+      <!-- บันทึก & คืนค่า -->
+      <button onclick="saveContent()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1 rounded font-medium transition shadow-sm">
+        💾 เซฟการแก้ไข
+      </button>
+      <button onclick="resetDefault()" class="bg-rose-50 hover:bg-rose-100 text-rose-600 px-2 py-1 rounded border border-rose-200 font-medium transition">
+        ↺ รีเซ็ตเดิม
+      </button>
+
+      <!-- สั่งพิมพ์ -->
+      <button onclick="window.print()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded font-semibold transition shadow-sm flex items-center gap-1">
+        🖨️ พิมพ์ / บันทึก PDF
+      </button>
+    </div>
+  </header>
+
+  <!-- แจ้งเตือนสถานะเซฟ -->
+  <div id="saveToast" class="no-print fixed bottom-4 right-4 bg-slate-800 text-white text-xs px-3 py-2 rounded-lg shadow-lg opacity-0 transition-opacity pointer-events-none z-50">
+    บันทึกเนื้อหาลงเครื่องเรียบร้อยแล้ว!
+  </div>
+
+  <!-- ================= หน้า 1 (ด้านหน้า) ================= -->
+  <div class="a4-page text-[9.5px] leading-[1.3]" id="page-1">
+    <div class="border-b-2 border-indigo-700 pb-1 mb-2 flex justify-between items-end">
+      <div>
+        <h1 class="font-extrabold text-sm text-indigo-900 leading-none">สรุปสอบปลายภาค - หน้า 1 (คำนวณ, ภาพดิจิทัล & การจำรูปแบบ)</h1>
+        <p class="text-[8px] text-slate-500 mt-0.5">สูตรทั้งหมดเขียนแบบสมการตรง ไม่ใช้ LaTeX ป้องกันตัวอักษรเพี้ยน</p>
+      </div>
+      <span class="text-[9px] font-bold bg-indigo-700 text-white px-1.5 py-0.5 rounded">หน้า 1 / 2</span>
+    </div>
+
+    <!-- คอนเทนเนอร์ 2 คอลัมน์ที่รองรับ Sortable Drag-Drop -->
+    <div class="grid grid-cols-2 gap-2 h-full" id="container-page-1">
+
+      <!-- กล่องที่ 1: รวมสูตรคำนวณ -->
+      <div class="card bg-white border border-slate-300 rounded p-2 shadow-sm hover:border-indigo-400 transition relative group">
+        <div class="flex items-center justify-between border-b border-slate-200 pb-1 mb-1 font-bold text-indigo-900">
+          <span class="flex items-center gap-1">
+            <span class="cursor-grab card-handle text-slate-400 hover:text-slate-600">⠿</span>
+            🧮 1. รวมสูตรคำนวณสำคัญ (K-NN, ขนาดไฟล์, คลื่น)
+          </span>
+          <button onclick="deleteCard(this)" class="card-delete no-print text-slate-300 hover:text-rose-500 font-bold px-1">✕</button>
+        </div>
+        <div contenteditable="true" class="outline-none space-y-1 text-slate-700">
+          <div>
+            <span class="font-semibold text-indigo-800">• K-NN Distance (Euclidean):</span>
+            <div class="bg-slate-50 p-1 rounded my-0.5 border border-slate-200 font-mono text-[9px] text-slate-900">
+              d = √[ (x₂ - x₁)² + (y₂ - y₁)² ]
+            </div>
+            - <b>1-NN:</b> วัดระยะห่างไปยังทุกจุด จุดไหนใกล้สุด ตอบประเภทนั้นทันที<br>
+            - <b>3-NN:</b> เลือกเพื่อนบ้านที่ใกล้สุด 3 ลำดับแรก แล้วตัดสินด้วยเสียงข้างมาก (Majority Vote)<br>
+            - <i>โจทย์ข้อสอบ:</i> ทำนายประเภทหนัง (ฉากต่อสู้ x, ฉากรัก y) คำนวณ d เทียบตาราง
+          </div>
+          <div>
+            <span class="font-semibold text-indigo-800">• สูตรคำนวณขนาดไฟล์ภาพ (Raw Size):</span>
+            <div class="bg-slate-50 p-1 rounded my-0.5 border border-slate-200 font-mono text-[9px] text-slate-900">
+              ขนาดไฟล์ (Bits) = กว้าง(W) × ยาว(H) × Bit Depth
+            </div>
+            - <b>สเต็ปแปลงหน่วย:</b> Bits ÷ 8 = Bytes → ÷ 1,024 = KB → ÷ 1,024 = MB<br>
+            - <b>ความลึกบิต:</b> ขาวดำ (Binary) = 1 บิต, เทา (Grayscale) = 8 บิต, สี (RGB) = 24 บิต (8×3)<br>
+            - <i>ตัวอย่าง 512×512:</i> ขาวดำ = 0.033 MB, Grayscale = 0.262 MB, RGB = 0.786 MB
+          </div>
+          <div>
+            <span class="font-semibold text-indigo-800">• คลื่นแสง & สัญญาณดิจิทัล:</span>
+            <div class="bg-slate-50 p-1 rounded my-0.5 border border-slate-200 font-mono text-[9px] text-slate-900">
+              F = 1 / T | T = 1 / F | V = F × λ | ความเร็วแสง V = 3 × 10⁸ m/s
+            </div>
+            - <b>Nyquist Theorem:</b> ความถี่สุ่ม fs ≥ 2 · fmax ป้องกันสัญญาณเพี้ยน (Aliasing)
+          </div>
+        </div>
+      </div>
+
+      <!-- กล่องที่ 2: Image Processing พื้นฐาน -->
+      <div class="card bg-white border border-slate-300 rounded p-2 shadow-sm hover:border-indigo-400 transition relative group">
+        <div class="flex items-center justify-between border-b border-slate-200 pb-1 mb-1 font-bold text-indigo-900">
+          <span class="flex items-center gap-1">
+            <span class="cursor-grab card-handle text-slate-400 hover:text-slate-600">⠿</span>
+            🖼️ 2. ภาพดิจิทัล & เทคนิคการปรับปรุงภาพ
+          </span>
+          <button onclick="deleteCard(this)" class="card-delete no-print text-slate-300 hover:text-rose-500 font-bold px-1">✕</button>
+        </div>
+        <div contenteditable="true" class="outline-none space-y-1 text-slate-700">
+          <div>
+            <span class="font-semibold text-indigo-800">• การแปลง Analog → Digital:</span><br>
+            1. <b>Sampling:</b> สุ่มตำแหน่งพิกัดเชิงพื้นที่กลายเป็นพิกเซล (X, Y)<br>
+            2. <b>Quantization:</b> แปลงความเข้มแสงเป็นระดับตัวเลข (Gray Level เช่น 0–255)
+          </div>
+          <div>
+            <span class="font-semibold text-indigo-800">• 4 ชนิดของภาพดิจิทัล:</span><br>
+            - <b>Binary (1-bit):</b> มีแค่ 0 (ดำ) และ 1 (ขาว) ขนาดเล็กสุด เหมาะกับตัวหนังสือ/ลายนิ้วมือ<br>
+            - <b>Grayscale (8-bit):</b> 256 ระดับเทา (0 = ดำสนิท, 255 = ขาวสว่าง)<br>
+            - <b>True Color RGB (24-bit):</b> สีแดง-เขียว-น้ำเงิน ช่องละ 8 บิต รวม 16.7 ล้านสี<br>
+            - <b>Indexed Color:</b> เก็บดัชนี 8 บิต อ้างอิง Color Table ไม่เกิน 256 สี นิยมใน GIF
+          </div>
+          <div>
+            <span class="font-semibold text-indigo-800">• Bitmap vs Vector:</span><br>
+            - <b>Bitmap:</b> สร้างจากพิกเซล ขยายแล้วแตก/เบลอ ภาพถ่ายสมจริง ไฟล์ใหญ่ตาม Resolution<br>
+            - <b>Vector:</b> สร้างจากสมการคณิตศาสตร์/เรขาคณิต ขยายเท่าไรก็คมชัด ไฟล์เล็ก เหมาะกับโลโก้
+          </div>
+          <div>
+            <span class="font-semibold text-indigo-800">• 4 เทคนิคปรับแต่งภาพ (ออกสอบแน่):</span><br>
+            1. <b>Anti-aliasing:</b> เกลี่ยจุดสีรอยต่อเพื่อลบรอยหยัก ให้ขอบเส้นดูเรียบเนียน<br>
+            2. <b>Transformation:</b> แปลงเชิงเรขาคณิต เช่น ย่อ/ขยาย หมุน เลื่อนตำแหน่ง ปรับสว่าง<br>
+            3. <b>Dithering:</b> กระจายจุดสีหลอกสายตาเพื่อจำลองเฉดสีใหม่เมื่อจอมีสีจำกัด<br>
+            4. <b>Rendering:</b> ลงสี คำนวณแสง เงา และพื้นผิวลงบนโครงร่างโมเดล 3D ให้สมจริง
+          </div>
+        </div>
+      </div>
+
+      <!-- กล่องที่ 3: ระบบสี & Animation -->
+      <div class="card bg-white border border-slate-300 rounded p-2 shadow-sm hover:border-indigo-400 transition relative group">
+        <div class="flex items-center justify-between border-b border-slate-200 pb-1 mb-1 font-bold text-indigo-900">
+          <span class="flex items-center gap-1">
+            <span class="cursor-grab card-handle text-slate-400 hover:text-slate-600">⠿</span>
+            🎨 3. ระบบแม่สี & ภาพเคลื่อนไหว (Animation)
+          </span>
+          <button onclick="deleteCard(this)" class="card-delete no-print text-slate-300 hover:text-rose-500 font-bold px-1">✕</button>
+        </div>
+        <div contenteditable="true" class="outline-none space-y-1 text-slate-700">
+          <div>
+            <span class="font-semibold text-indigo-800">• ระบบแม่สี Additive vs Subtractive:</span><br>
+            - <b>Additive (ระบบแสง 3 สี):</b> แม่สี <b>RGB</b> (แดง เขียว น้ำเงิน) รวมกันทุกสี = <b>สีขาว</b> ไม่มีแสง = <b>สีดำ</b> ใช้กับจอแสดงผล คอมพิวเตอร์ ทีวี<br>
+            - <b>Subtractive (ระบบสารสี 4 สี):</b> แม่สี <b>CMYK</b> (ฟ้า-Cyan, ม่วงแดง-Magenta, เหลือง-Yellow, ดำ-Key/Black) รวมทุกสี = <b>สีดำ</b> ไม่มีสี = <b>สีขาว</b> ใช้กับงานพิมพ์ เครื่องพิมพ์
+          </div>
+          <div>
+            <span class="font-semibold text-indigo-800">• ความสว่าง, คอนทราสต์ & Point Processing:</span><br>
+            - <b>Brightness (B):</b> ค่าเฉลี่ยความสว่าง B = (1/MN) × Σ f(x, y)<br>
+            - <b>Contrast (C):</b> ส่วนเบี่ยงเบนมาตรฐานของการกระจายแสง C = √[ (1/MN) × Σ(f(x, y) - B)² ]<br>
+            - <b>ปรับเชิงเส้น:</b> g(x, y) = a · f(x, y) + b (a ปรับคอนทราสต์, b ปรับสว่าง)<br>
+            - <b>Image Negative:</b> g(x, y) = 255 - f(x, y) (สลับดำเป็นขาว ขาวเป็นดำ)
+          </div>
+          <div>
+            <span class="font-semibold text-indigo-800">• ภาพเคลื่อนไหว (Animation Costs):</span><br>
+            - <b>ถูกสุด / เร็วสุด:</b> <b>Computer Animation</b> (2D/3D ดิจิทัล แก้ไขง่าย ลดต้นทุน)<br>
+            - <b>แพงสุด / ใช้เวลานานสุด:</b> <b>Traditional Hand-drawn</b> (วาดมือทีละเฟรม 24 รูป/วินาที ใช้คนมหาศาล) และ Stop Motion คุณภาพสูง
+          </div>
+        </div>
+      </div>
+
+      <!-- กล่องที่ 4: Pattern Recognition & Abstraction -->
+      <div class="card bg-white border border-slate-300 rounded p-2 shadow-sm hover:border-indigo-400 transition relative group">
+        <div class="flex items-center justify-between border-b border-slate-200 pb-1 mb-1 font-bold text-indigo-900">
+          <span class="flex items-center gap-1">
+            <span class="cursor-grab card-handle text-slate-400 hover:text-slate-600">⠿</span>
+            🔍 4. การจำรูปแบบ & การคิดเชิงนามธรรม
+          </span>
+          <button onclick="deleteCard(this)" class="card-delete no-print text-slate-300 hover:text-rose-500 font-bold px-1">✕</button>
+        </div>
+        <div contenteditable="true" class="outline-none space-y-1 text-slate-700">
+          <div>
+            <span class="font-semibold text-indigo-800">• นิยาม Pattern Recognition:</span><br>
+            - <b>Pattern Recognition:</b> ศาสตร์จำแนกวัตถุออกเป็นหมวดหมู่ (Classes) ตามรูปแบบ<br>
+            - <b>Feature:</b> คุณลักษณะเด่นเชิงปริมาณ/คุณภาพที่เป็นตัวแทนของข้อมูล<br>
+            - <b>Feature Extraction:</b> การสกัดดึงฟีเจอร์เด่นออกจากข้อมูลดิบ<br>
+            - <b>Feature Selection:</b> การคัดเลือกฟีเจอร์ที่ดีที่สุดเพื่อใช้จำแนกอย่างแม่นยำ<br>
+            - <b>Classifier:</b> ฟังก์ชัน/ตัวตัดสินใจจัดวัตถุเข้าสู่ Class<br>
+            - <b>Label:</b> ป้ายกำกับเฉลยชื่อคลาสข้อมูล
+          </div>
+          <div>
+            <span class="font-semibold text-indigo-800">• Abstraction (การคิดเชิงนามธรรม):</span><br>
+            - กระบวนการคัดกรอง <b>โฟกัสเฉพาะสาระสำคัญที่เป็นแก่นของปัญหา และตัดรายละเอียดที่ไม่จำเป็นหรือฉากหลัง (Background) ทิ้งไป</b><br>
+            - <i>ตัวอย่าง:</i> ภาพคนเล่นเครื่องรอกออกกำลังกาย (Cable Press) สนใจแค่กลไกระบบรอก ตัดตัวคนและบรรยากาศในฟิตเนสทิ้ง
+          </div>
+          <div>
+            <span class="font-semibold text-indigo-800">• 4 ทักษะแนวคิดเชิงคำนวณ (Computational Thinking):</span><br>
+            1. <b>Decomposition:</b> แตกปัญหาใหญ่ออกเป็นปัญหาย่อยๆ<br>
+            2. <b>Pattern Recognition:</b> สังเกตรูปแบบ ความเหมือน ความต่าง และแนวโน้ม<br>
+            3. <b>Abstraction:</b> ตัดสิ่งที่ไม่จำเป็น สนใจเฉพาะสาระสำคัญ<br>
+            4. <b>Algorithm Design:</b> ออกแบบขั้นตอนแก้ปัญหาแบบเป็นลำดับขั้น
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ================= หน้า 2 (ด้านหลัง) ================= -->
+  <div class="a4-page text-[9.5px] leading-[1.3]" id="page-2">
+    <div class="border-b-2 border-emerald-700 pb-1 mb-2 flex justify-between items-end">
+      <div>
+        <h1 class="font-extrabold text-sm text-emerald-900 leading-none">สรุปสอบปลายภาค - หน้า 2 (หุ่นยนต์, โครงข่ายประสาท & ระบบผู้เชี่ยวชาญ)</h1>
+        <p class="text-[8px] text-slate-500 mt-0.5">เน้นการจำแนกประเภท ศัพท์เฉพาะทาง AI และการเปรียบเทียบสถาปัตยกรรม</p>
+      </div>
+      <span class="text-[9px] font-bold bg-emerald-700 text-white px-1.5 py-0.5 rounded">หน้า 2 / 2</span>
+    </div>
+
+    <!-- คอนเทนเนอร์ 2 คอลัมน์ที่รองรับ Sortable Drag-Drop -->
+    <div class="grid grid-cols-2 gap-2 h-full" id="container-page-2">
+
+      <!-- กล่องที่ 5: วิทยาการหุ่นยนต์ (Robotics) -->
+      <div class="card bg-white border border-slate-300 rounded p-2 shadow-sm hover:border-emerald-400 transition relative group">
+        <div class="flex items-center justify-between border-b border-slate-200 pb-1 mb-1 font-bold text-emerald-900">
+          <span class="flex items-center gap-1">
+            <span class="cursor-grab card-handle text-slate-400 hover:text-slate-600">⠿</span>
+            🤖 5. วิทยาการหุ่นยนต์ (Robotics)
+          </span>
+          <button onclick="deleteCard(this)" class="card-delete no-print text-slate-300 hover:text-rose-500 font-bold px-1">✕</button>
+        </div>
+        <div contenteditable="true" class="outline-none space-y-1 text-slate-700">
+          <div>
+            <span class="font-semibold text-emerald-800">• 5 องค์ประกอบพื้นฐานหุ่นยนต์:</span><br>
+            1. <b>Mechanical:</b> กลไก โครงสร้าง และฮาร์ดแวร์<br>
+            2. <b>Power:</b> แหล่งจ่ายพลังงาน เช่น แบตเตอรี่, ไฟเลี้ยง<br>
+            3. <b>Sensor:</b> ส่วนรับรู้สิ่งแวดล้อม (ตา-กล้อง, หู-ไมค์, ผิว-สัมผัส/เคมี)<br>
+            4. <b>Effector / Actuator:</b> ส่วนกระทำตอบสนอง เช่น แขนกล มอเตอร์ ล้อ<br>
+            5. <b>Intelligent / Control System:</b> สมองกลประมวลผลและการตัดสินใจ
+          </div>
+          <div>
+            <span class="font-semibold text-emerald-800">• สถาปัตยกรรมระบบควบคุม:</span><br>
+            - <b>Reactive Control:</b> รับข้อมูลจาก Sensor สั่งงาน Effector ทันที <b>ไม่มี AI ไม่มีความจำ ไม่เก็บอดีต</b> ตอบสนองรวดเร็วในสภาพแวดล้อม Dynamic<br>
+            - <b>Subsumption Architecture:</b> <b>นำ AI มาใช้</b> (ANN, Fuzzy, GA) วางแผนได้ และ <b>เก็บบันทึกข้อมูลอดีตเป็นประสบการณ์</b> (ต้องใช้แรมเยอะ)
+          </div>
+          <div>
+            <span class="font-semibold text-emerald-800">• ประเภทหุ่นยนต์ (คำศัพท์ข้อสอบ):</span><br>
+            - <b>Fixed Robot:</b> หุ่นยนต์อยู่กับที่ เช่น แขนกลโรงงาน (Robotic Arm)<br>
+            - <b>Mobile Robot:</b> เคลื่อนที่ได้ (ล้อ, ล้อสายพาน, ขา, บิน, ว่ายน้ำ)<br>
+            - <b>Humanoid:</b> หุ่นยนต์รูปร่างเลียนแบบมนุษย์ทั้งตัว เช่น ASIMO<br>
+            - <b>Cyborg (ไซบอร์ก):</b> สิ่งมีชีวิตที่มีชิ้นส่วนจักรกล/อิเล็กทรอนิกส์ฝังในร่างกาย<br>
+            - <b>Actroid (แอคทรอยด์):</b> ฮิวแมนนอยด์ที่เน้นความเหมือนมนุษย์จริงขั้นสูง ทั้งผิวสัมผัสและการแสดงสีหน้า (มักเลียนแบบผู้หญิง)<br>
+            - <b>Nanorobot (นาโนโรบอต):</b> ขนาดระดับนาโนเมตร ใช้ในการแพทย์ระดับเซลล์
+          </div>
+          <div>
+            <span class="font-semibold text-emerald-800">• ภาษาโปรแกรมหุ่นยนต์:</span><br>
+            - <b>Behavior Language:</b> (Rodney Brooks, 1990) ใช้ Rule-Based แบบ Real-time กับ Subsumption<br>
+            - <b>GRL:</b> Functional programming สำหรับ Finite State Machine<br>
+            - <b>Alisp:</b> พัฒนาจาก Lisp ช่วยให้หุ่นยนต์ตัดสินใจได้เองจากการเรียนรู้
+          </div>
+        </div>
+      </div>
+
+      <!-- กล่องที่ 6: Neural Network & Deep Learning -->
+      <div class="card bg-white border border-slate-300 rounded p-2 shadow-sm hover:border-emerald-400 transition relative group">
+        <div class="flex items-center justify-between border-b border-slate-200 pb-1 mb-1 font-bold text-emerald-900">
+          <span class="flex items-center gap-1">
+            <span class="cursor-grab card-handle text-slate-400 hover:text-slate-600">⠿</span>
+            🧠 6. โครงข่ายประสาทเทียม & Deep Learning
+          </span>
+          <button onclick="deleteCard(this)" class="card-delete no-print text-slate-300 hover:text-rose-500 font-bold px-1">✕</button>
+        </div>
+        <div contenteditable="true" class="outline-none space-y-1 text-slate-700">
+          <div>
+            <span class="font-semibold text-emerald-800">• เทียบโครงข่ายชีววิทยากับคอมพิวเตอร์:</span><br>
+            - เดนไดรท์ (Dendrite) = ข้อมูลนำเข้า (Inputs: xᵢ)<br>
+            - จุดประสานประสาท (Synapses) = ค่าน้ำหนักความสำคัญ (Weights: wᵢ)<br>
+            - เซลล์ประสาท (Neuron/Soma) = ผลรวมถ่วงน้ำหนัก (Summation: Σ wᵢxᵢ) + Activation Function<br>
+            - แอ็กซอน (Axon) = ผลลัพธ์ขาออก (Output: y)
+          </div>
+          <div>
+            <span class="font-semibold text-emerald-800">• สถาปัตยกรรม & การปรับค่าน้ำหนัก:</span><br>
+            - <b>Feedforward:</b> ข้อมูลวิ่งไปข้างหน้าทิศทางเดียว Input → Hidden → Output<br>
+            - <b>Feedback (Recurrent):</b> มีการป้อนผลลัพธ์ย้อนกลับมาคำนวณซ้ำ<br>
+            - <b>Backpropagation:</b> อัลกอริทึมส่งค่า Error ย้อนกลับจาก Output ด้วยวิธี Gradient Descent เพื่อคำนวณปรับ Weight (Δw)
+          </div>
+          <div>
+            <span class="font-semibold text-emerald-800">• Activation Functions (ฟังก์ชันกระตุ้น):</span><br>
+            - <b>Binary Step / Threshold:</b> ตัดค่าเป็น 0 หรือ 1 ตามขีดเริ่มเปลี่ยน T<br>
+            - <b>Sigmoid (S-curve):</b> f(x) = 1 / (1 + e⁻ˣ) บีบค่าช่วง [0, 1] กราฟตัว S<br>
+            - <b>ReLU:</b> f(x) = max(0, x) ถ้าลบปัดเป็น 0 ถ้าบวกคงเดิม แก้อาการ Vanishing Gradient นิยมที่สุดใน Deep Learning<br>
+            - <b>Softmax:</b> บีบเอาต์พุตหลายโหนดเป็นความน่าจะเป็น รวมกันได้ 1 (100%)
+          </div>
+          <div>
+            <span class="font-semibold text-emerald-800">• คำศัพท์เฉพาะทาง Deep Learning:</span><br>
+            - <b>Epoch:</b> รอบการเทรนที่โมเดลเรียนรู้ผ่านชุดข้อมูล Training Data ครบทุกตัวอย่าง 1 รอบเต็ม<br>
+            - <b>CNN (Convolutional Neural Network):</b> สกัด Spatial Features เหมาะที่สุดกับ <b>งานภาพ (Image Processing / Computer Vision)</b>
+          </div>
+        </div>
+      </div>
+
+      <!-- กล่องที่ 7: 4 ประเภทการเรียนรู้ (Machine Learning) -->
+      <div class="card bg-white border border-slate-300 rounded p-2 shadow-sm hover:border-emerald-400 transition relative group">
+        <div class="flex items-center justify-between border-b border-slate-200 pb-1 mb-1 font-bold text-emerald-900">
+          <span class="flex items-center gap-1">
+            <span class="cursor-grab card-handle text-slate-400 hover:text-slate-600">⠿</span>
+            📚 7. รูปแบบการเรียนรู้ (Machine Learning)
+          </span>
+          <button onclick="deleteCard(this)" class="card-delete no-print text-slate-300 hover:text-rose-500 font-bold px-1">✕</button>
+        </div>
+        <div contenteditable="true" class="outline-none space-y-1 text-slate-700">
+          <div>
+            <span class="font-semibold text-emerald-800">• 1. Supervised Learning (แบบมีผู้สอน):</span><br>
+            - ข้อมูลมีทั้ง Feature และ Label (เฉลยเปรียบเหมือนมีครูคอยตรวจคำตอบ)<br>
+            - โมเดลจะตรวจเช็กคำตอบกับเฉลยเพื่อปรับแก้ Weight ให้ดีขึ้น (เช่น Classification, Regression)
+          </div>
+          <div>
+            <span class="font-semibold text-emerald-800">• 2. Unsupervised Learning (แบบไม่มีผู้สอน / Clustering):</span><br>
+            - ข้อมูลไม่มี Label หรือเฉลยล่วงหน้า<br>
+            - โมเดลต้องหาความสัมพันธ์และจัดกลุ่มก้อนข้อมูลเองตามความคล้ายคลึง (เช่น การแบ่งกลุ่มสายพันธุ์พืช/สัตว์)
+          </div>
+          <div>
+            <span class="font-semibold text-emerald-800">• 3. Semi-supervised Learning:</span><br>
+            - ใช้ข้อมูลที่มี Label จำนวนน้อย ผสมกับข้อมูลไม่มี Label จำนวนมาก เพื่อช่วยประหยัดเวลาและต้นทุนการเตรียมข้อมูล
+          </div>
+          <div>
+            <span class="font-semibold text-emerald-800">• 4. Reinforcement Learning (การเรียนรู้เสริมกำลัง):</span><br>
+            - เรียนรู้ผ่านการลองผิดลองถูก (Trial & Error)<br>
+            - ตัว Agent จะเรียนรู้กับสภาพแวดล้อมโดยได้รับ "รางวัล (Reward)" เมื่อทำถูก และ "บทลงโทษ (Penalty)" เมื่อทำผิด
+          </div>
+        </div>
+      </div>
+
+      <!-- กล่องที่ 8: Expert Systems & Data Systems -->
+      <div class="card bg-white border border-slate-300 rounded p-2 shadow-sm hover:border-emerald-400 transition relative group">
+        <div class="flex items-center justify-between border-b border-slate-200 pb-1 mb-1 font-bold text-emerald-900">
+          <span class="flex items-center gap-1">
+            <span class="cursor-grab card-handle text-slate-400 hover:text-slate-600">⠿</span>
+            💡 8. ระบบผู้เชี่ยวชาญ & การจัดการข้อมูล
+          </span>
+          <button onclick="deleteCard(this)" class="card-delete no-print text-slate-300 hover:text-rose-500 font-bold px-1">✕</button>
+        </div>
+        <div contenteditable="true" class="outline-none space-y-1 text-slate-700">
+          <div>
+            <span class="font-semibold text-emerald-800">• ระบบผู้เชี่ยวชาญ (Expert System - ES):</span><br>
+            - โปรแกรมจำลองการตัดสินใจของผู้เชี่ยวชาญเฉพาะทางโดยใช้ความรู้และการอนุมาน<br>
+            - <b>5 ส่วนประกอบหลัก:</b><br>
+            1. <b>Knowledge Base:</b> ฐานความรู้และกฎเกณฑ์ (IF-THEN)<br>
+            2. <b>Inference Engine:</b> เครื่องอนุมาน กลไกประมวลผลตรรกะเพื่อหาข้อสรุป<br>
+            3. <b>Knowledge Acquisition:</b> ส่วนดึง/ถ่ายทอดความรู้จากคนมาใส่ระบบ<br>
+            4. <b>Explanation Subsystem:</b> ส่วนอธิบายเหตุผลว่าทำไมถึงตอบเช่นนั้น<br>
+            5. <b>User Interface:</b> ส่วนติดต่อประสานงานกับผู้ใช้งาน
+          </div>
+          <div>
+            <span class="font-semibold text-emerald-800">• เปรียบเทียบประเภทระบบ ES:</span><br>
+            - <b>Rule-based:</b> ใช้ตรรกะกฎชัดเจนตรงไปตรงมา IF (เงื่อนไข) THEN (ผลลัพธ์)<br>
+            - <b>Fuzzy Expert System:</b> ใช้ตรรกศาสตร์คลุมเครือ ค่าความจริงอยู่ในช่วง [0, 1] สำหรับจัดการข้อมูลกำกวม เช่น "น้ำอุ่นปานกลาง", "รถวิ่งเร็วมาก"<br>
+            - <b>Case-based Reasoning (CBR):</b> แก้ปัญหาใหม่โดยเทียบเคียงกับกรณีศึกษา/ประสบการณ์เดิมในอดีตที่คล้ายกัน
+          </div>
+          <div>
+            <span class="font-semibold text-emerald-800">• ลักษณะเฉพาะของระบบ & ข้อมูล:</span><br>
+            - <b>Deterministic:</b> ผลลัพธ์แน่นอน 100% ป้อนค่าเดิมได้ผลเดิมเสมอ ไร้การสุ่ม<br>
+            - <b>Probabilistic (Stochastic):</b> มีความน่าจะเป็น/ความไม่แน่นอนเข้ามาเกี่ยวข้อง<br>
+            - <b>Static System:</b> ผลลัพธ์ขึ้นกับอินพุตปัจจุบันเท่านั้น ไม่มีความจำอดีต<br>
+            - <b>Data Mining:</b> การค้นหารูปแบบหรือความรู้ที่ซ่อนอยู่ในฐานข้อมูลขนาดใหญ่
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // 1. ตั้งค่า SortableJS ให้สามารถลากย้ายการ์ดระหว่างคอลัมน์และหน้าได้
+    const p1Container = document.getElementById('container-page-1');
+    const p2Container = document.getElementById('container-page-2');
+
+    const sortableOptions = {
+      group: 'shared-cards',
+      animation: 150,
+      handle: '.card-handle',
+      ghostClass: 'opacity-40',
+      onEnd: () => {
+        showToast('สลับตำแหน่งเรียบร้อย (อย่าลืมกดเซฟ)');
+      }
+    };
+
+    new Sortable(p1Container, sortableOptions);
+    new Sortable(p2Container, sortableOptions);
+
+    // 2. ปรับขนาดตัวอักษรของกระดาษ A4
+    const fontSelect = document.getElementById('fontSizeSelect');
+    fontSelect.addEventListener('change', (e) => {
+      const p1 = document.getElementById('page-1');
+      const p2 = document.getElementById('page-2');
+      const classes = ['text-[8.5px]', 'leading-[1.25]', 'text-[9.5px]', 'leading-[1.3]', 'text-[10.5px]', 'leading-[1.35]'];
+      
+      p1.classList.remove(...classes);
+      p2.classList.remove(...classes);
+
+      const selected = e.target.value.split(' ');
+      p1.classList.add(...selected);
+      p2.classList.add(...selected);
+    });
+
+    // 3. ฟังก์ชันลบการ์ด
+    function deleteCard(btn) {
+      if (confirm('ต้องการลบกล่องเนื้อหานี้ใช่ไหม?')) {
+        btn.closest('.card').remove();
+        showToast('ลบกล่องเนื้อหาแล้ว');
+      }
+    }
+
+    // 4. ฟังก์ชันเพิ่มการ์ดใหม่
+    function addNewCard(pageNo) {
+      const container = document.getElementById(`container-page-${pageNo}`);
+      const colorClass = pageNo === 1 ? 'indigo' : 'emerald';
+      
+      const newCard = document.createElement('div');
+      newCard.className = `card bg-white border border-slate-300 rounded p-2 shadow-sm hover:border-${colorClass}-400 transition relative group`;
+      newCard.innerHTML = `
+        <div class="flex items-center justify-between border-b border-slate-200 pb-1 mb-1 font-bold text-${colorClass}-900">
+          <span class="flex items-center gap-1">
+            <span class="cursor-grab card-handle text-slate-400 hover:text-slate-600">⠿</span>
+            ✏️ หัวข้อใหม่ (คลิกแก้ไข)
+          </span>
+          <button onclick="deleteCard(this)" class="card-delete no-print text-slate-300 hover:text-rose-500 font-bold px-1">✕</button>
+        </div>
+        <div contenteditable="true" class="outline-none space-y-1 text-slate-700">
+          พิมพ์เนื้อหาของคุณที่นี่...
+        </div>
+      `;
+      container.appendChild(newCard);
+      showToast(`เพิ่มกล่องใหม่ในหน้า ${pageNo} แล้ว`);
+    }
+
+    // 5. บันทึกและโหลดข้อมูลจาก LocalStorage
+    function saveContent() {
+      const p1HTML = document.getElementById('container-page-1').innerHTML;
+      const p2HTML = document.getElementById('container-page-2').innerHTML;
+      localStorage.setItem('cheatsheet_page1', p1HTML);
+      localStorage.setItem('cheatsheet_page2', p2HTML);
+      showToast('บันทึกเนื้อหาลงเบราว์เซอร์สำเร็จ!');
+    }
+
+    function resetDefault() {
+      if (confirm('ต้องการรีเซ็ตกลับเป็นเนื้อหาตั้งต้นหรือไม่? การแก้ไขทั้งหมดจะหายไป')) {
+        localStorage.removeItem('cheatsheet_page1');
+        localStorage.removeItem('cheatsheet_page2');
+        location.reload();
+      }
+    }
+
+    // แจ้งเตือน Toast เล็กๆ
+    function showToast(msg) {
+      const toast = document.getElementById('saveToast');
+      toast.innerText = msg;
+      toast.classList.remove('opacity-0');
+      toast.classList.add('opacity-100');
+      setTimeout(() => {
+        toast.classList.remove('opacity-100');
+        toast.classList.add('opacity-0');
+      }, 2000);
+    }
+
+    // โหลดข้อมูลเก่าที่เคยเซฟไว้
+    window.addEventListener('DOMContentLoaded', () => {
+      const savedP1 = localStorage.getItem('cheatsheet_page1');
+      const savedP2 = localStorage.getItem('cheatsheet_page2');
+      if (savedP1) document.getElementById('container-page-1').innerHTML = savedP1;
+      if (savedP2) document.getElementById('container-page-2').innerHTML = savedP2;
+    });
+  </script>
+</body>
+</html>
