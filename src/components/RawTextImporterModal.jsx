@@ -18,9 +18,9 @@ import {
 import { 
   generateSystemPrompt, 
   compactContentWithPipeAndColor, 
-  getSampleUltraCompactNotes, 
-  HIGHLIGHT_COLOR_MAP 
+  getSampleUltraCompactNotes 
 } from '../utils/promptGenerator';
+import { parseRawTextToChunks } from '../utils/chunkParser';
 
 export default function RawTextImporterModal({ isOpen, onClose, onImportChunks }) {
   const [rawText, setRawText] = useState('');
@@ -67,152 +67,20 @@ export default function RawTextImporterModal({ isOpen, onClose, onImportChunks }
     }
   };
 
-  // Compute chunks based strictly on customDelimiter
+  // Compute chunks based strictly on customDelimiter and prevent empty cards
   const computedChunks = useMemo(() => {
-    if (!rawText.trim()) return [];
-
-    const delim = customDelimiter.trim() || '---';
-    const initialParts = rawText.split(delim);
-    const rawParts = [];
-
-    // Ensure headers stuck to text or multiple headers in one chunk are cleanly separated
-    initialParts.forEach((p) => {
-      const normalized = p.replace(/([^\n\s])(#{2,4}\s+[0-9A-Za-zก-๙])/g, '$1\n$2');
-      const subParts = normalized.split(/(?=(?:^|\n)#{2,4}\s+[0-9A-Za-zก-๙])/);
-      subParts.forEach(sp => {
-        if (sp.trim()) rawParts.push(sp.trim());
-      });
+    return parseRawTextToChunks(rawText, {
+      delimiter: customDelimiter,
+      autoCompactPipe,
+      autoFormula,
+      autoBoldKeys
     });
-    
-    let currentPage = 1;
-    const sections = [];
-    const colors = ['lilac', 'lime', 'coral', 'mint', 'cream', 'pink', 'sky'];
-
-    rawParts.forEach((part) => {
-      let raw = part.trim();
-      if (!raw) return;
-
-      // Detect page header marker e.g. === หน้า 1 === or === หน้า 2 === or === Page 2 ===
-      const pageHeaderMatch = raw.match(/(?:^|\n)\s*(?:={3,}|#{2,}|-{3,}|\[)?\s*(?:หน้า\s*([1-9])|Page\s*([1-9])|ด้านหน้า|ด้านหลัง)\s*(?:={3,}|#{2,}|-{3,}|\])?\s*(?:\n|$)/i);
-      if (pageHeaderMatch) {
-        const matchedPageNum = pageHeaderMatch[1] || pageHeaderMatch[2];
-        if (matchedPageNum) {
-          currentPage = Number(matchedPageNum);
-        } else if (pageHeaderMatch[0].includes('ด้านหน้า')) {
-          currentPage = 1;
-        } else if (pageHeaderMatch[0].includes('ด้านหลัง')) {
-          currentPage = 2;
-        }
-        // Remove page marker line from card content
-        raw = raw.replace(pageHeaderMatch[0], '').trim();
-      }
-
-      if (!raw) return;
-
-      // Extract title, tag, and content from remaining lines
-      const lines = raw.split('\n');
-      let title = '';
-      let tag = '';
-      let contentLines = [];
-      let isTitleFound = false;
-
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        const trimmedLine = line.trim();
-
-        // Check tag line e.g. [แท็ก: ...] or แท็ก: ...
-        const tagMatch = trimmedLine.match(/^\[?(?:แท็ก|Tag)\s*[:：]\s*(.+?)(?:\])?$/i);
-        if (tagMatch) {
-          tag = tagMatch[1].trim();
-          continue;
-        }
-
-        // Check title if not yet found
-        if (!isTitleFound) {
-          const mdHeader = trimmedLine.match(/^#{1,4}\s+(.+)$/);
-          const explicitTitle = trimmedLine.match(/^(?:หัวข้อ|Topic|Title)\s*[:：]\s*(.+)$/i);
-          const numberedHeader = trimmedLine.match(/^[0-9]{1,2}[.)]\s+(.+)$/);
-
-          if (mdHeader) {
-            title = mdHeader[1].trim();
-            isTitleFound = true;
-            continue;
-          } else if (explicitTitle) {
-            title = explicitTitle[1].trim();
-            isTitleFound = true;
-            continue;
-          } else if (numberedHeader && numberedHeader[1].length < 60) {
-            title = trimmedLine;
-            isTitleFound = true;
-            continue;
-          } else if (trimmedLine.length > 0 && trimmedLine.length <= 50 && i === 0 && lines.length > 1) {
-            title = trimmedLine;
-            isTitleFound = true;
-            continue;
-          }
-        }
-
-        contentLines.push(line);
-      }
-
-      let body = contentLines.join('\n').trim();
-
-      // Fallbacks if title is empty
-      if (!title) {
-        if (body) {
-          const firstLine = body.split('\n')[0].trim();
-          if (firstLine.length <= 40) {
-            title = firstLine;
-            body = body.split('\n').slice(1).join('\n').trim();
-          } else {
-            title = `กล่องที่ ${sections.length + 1}`;
-          }
-        } else {
-          title = `กล่องที่ ${sections.length + 1}`;
-        }
-      }
-
-      if (!tag) {
-        tag = `หน้า ${currentPage} • กล่องที่ ${sections.length + 1}`;
-      }
-
-      // Post-process formatting
-      if (autoCompactPipe) {
-        body = compactContentWithPipeAndColor(body);
-      }
-
-      if (autoBoldKeys) {
-        body = body.replace(/^([A-Za-z0-9ก-๙\s]{2,25}):\s*/gm, '<b>$1:</b> ');
-      }
-
-      if (autoFormula) {
-        body = body.replace(/^((?:(?:\\text\{[^}]+\}|[a-zA-Z\d_]+)\s*(?:=|\\ge|\\le|≥|≤)\s*[^;\n]+|d\s*=\s*√[^;\n]+))\s*$/gm, '[formula]$1[/formula]');
-      }
-
-      // Normalize any highlight syntax from AI
-      // 1. [hl=color]...[/hl] or [mark=color]...[/mark]
-      body = body.replace(/\[(?:hl|mark|highlight)=([#a-zA-Z0-9]+)\]([\s\S]*?)\[\/(?:hl|mark|highlight)\]/gi, (_m, col, txt) => {
-        const hex = HIGHLIGHT_COLOR_MAP[col.toLowerCase()] || (col.startsWith('#') ? col : `#${col}`);
-        return `<mark style="background-color: ${hex}; color: inherit; padding: 1px 3px; border-radius: 3px;">${txt}</mark>`;
-      });
-      // 2. Unstyled <mark>... -> default yellow
-      body = body.replace(/<mark(?!\s+style)>/gi, '<mark style="background-color: #fef08a; color: inherit; padding: 1px 3px; border-radius: 3px;">');
-
-      sections.push({
-        id: `chunk-${sections.length}-${title.slice(0, 15).replace(/\s+/g, '_')}`,
-        title: title.replace(/^#+\s*/, '') || `กล่องที่ ${sections.length + 1}`,
-        tag: tag,
-        targetPage: currentPage,
-        colorTheme: colors[sections.length % colors.length],
-        content: body
-      });
-    });
-
-    return sections;
   }, [rawText, customDelimiter, autoCompactPipe, autoFormula, autoBoldKeys]);
 
-  // Synchronize manual edits with computed chunks
-  const activeChunks = hasCustomEdits ? manualChunks : computedChunks;
+  // Synchronize manual edits with computed chunks (always filter out empty chunks)
+  const activeChunks = (hasCustomEdits ? manualChunks : computedChunks).filter(
+    c => c && c.content && c.content.trim().length > 0
+  );
 
   // Analysis of page distribution
   const page1Count = activeChunks.filter(c => c.targetPage !== 2).length;
@@ -264,9 +132,10 @@ export default function RawTextImporterModal({ isOpen, onClose, onImportChunks }
   };
 
   const handleApplyImport = () => {
-    if (activeChunks.length === 0) return;
+    const validChunks = activeChunks.filter(c => c && c.content && c.content.trim().length > 0);
+    if (validChunks.length === 0) return;
     onImportChunks({
-      chunks: activeChunks,
+      chunks: validChunks,
       targetDestination,
       importAction
     });

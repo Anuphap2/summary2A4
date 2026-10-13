@@ -13,59 +13,13 @@ import {
   Highlighter,
   MoreHorizontal,
   Scissors,
-  Zap
+  Zap,
+  ChevronsUp,
+  ChevronsDown
 } from 'lucide-react';
 import { COLOR_THEMES } from '../data/defaultData';
 import { compactContentWithPipeAndColor, HIGHLIGHT_COLOR_MAP } from '../utils/promptGenerator';
-
-// Helper to clean and format LaTeX math syntax into readable symbols and formula badges
-const cleanMathFormulaText = (str) => {
-  if (!str) return '';
-  let result = str;
-
-  // 1. Convert block LaTeX \[ ... \] or $$ ... $$ to [formula]...[/formula]
-  result = result.replace(/\\\[([\s\S]*?)\\\]/g, '\n[formula]$1[/formula]\n');
-  result = result.replace(/\$\$([\s\S]*?)\$\$/g, '\n[formula]$1[/formula]\n');
-
-  // Convert standalone equation lines with \text{...} = ... into [formula]
-  result = result.replace(/(?:^|\n)(\s*\\text\{[^\n]+\}\s*=[\s\S]*?)(?:\n|$)/g, '\n[formula]$1[/formula]\n');
-
-  // 2. Clean common LaTeX expressions in text or formulas
-  result = result.replace(/\\text\{([^}]*)\}/g, '$1');
-  result = result.replace(/\\times/g, '×');
-  result = result.replace(/\\div/g, '÷');
-  result = result.replace(/\\ge(?:q)?(?![a-zA-Z])/g, '≥');
-  result = result.replace(/\\le(?:q)?(?![a-zA-Z])/g, '≤');
-  result = result.replace(/\\approx(?![a-zA-Z])/g, '≈');
-  result = result.replace(/\\ne(?:q)?(?![a-zA-Z])/g, '≠');
-  result = result.replace(/\\pm(?![a-zA-Z])/g, '±');
-  result = result.replace(/\\cdot(?![a-zA-Z])/g, '·');
-  result = result.replace(/\\sum(?![a-zA-Z])/g, 'Σ');
-  result = result.replace(/\\sqrt\{([^}]*)\}/g, '√($1)');
-  result = result.replace(/\\frac\{([^}]*)\}\{([^}]*)\}/g, '($1 / $2)');
-
-  // Subscripts & Superscripts
-  result = result.replace(/_\{([^}]+)\}/g, '<sub>$1</sub>');
-  result = result.replace(/([a-zA-Z])_([a-zA-Z0-9]+)/g, '$1<sub>$2</sub>');
-  result = result.replace(/\^\{([^}]+)\}/g, '<sup>$1</sup>');
-  result = result.replace(/([a-zA-Z0-9])\^([a-zA-Z0-9]+)/g, '$1<sup>$2</sup>');
-
-  // 3. Clean inline LaTeX $...$ or \$...\$
-  result = result.replace(/(?:\\\$|\$)([^\n$]+)(?:\\\$|\$)/g, (_match, math) => {
-    let clean = math
-      .replace(/\\text\{([^}]*)\}/g, '$1')
-      .replace(/\\times/g, '×')
-      .replace(/\\div/g, '÷')
-      .replace(/\\sum/g, 'Σ')
-      .replace(/\\ge(?:q)?(?![a-zA-Z])/g, '≥')
-      .replace(/\\le(?:q)?(?![a-zA-Z])/g, '≤')
-      .replace(/_\{([^}]+)\}/g, '<sub>$1</sub>')
-      .replace(/([a-zA-Z])_([a-zA-Z0-9]+)/g, '$1<sub>$2</sub>');
-    return `<span class="font-mono text-[9px] px-1 py-0.2 rounded bg-black/5 text-neutral-900 border border-black/10 inline-block font-semibold">${clean.trim()}</span>`;
-  });
-
-  return result;
-};
+import { renderLatexToHtml, normalizeMathDelimiters } from '../utils/mathRenderer';
 
 export default function CardItem({ 
   card, 
@@ -81,6 +35,7 @@ export default function CardItem({
   onTransferPage,
   onSplitCard,
   isDragOver,
+  dragOverPosition = null,
   onDragStart,
   onDragOver,
   onDrop
@@ -116,32 +71,44 @@ export default function CardItem({
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, [showMoreMenu]);
 
-  // Helper to parse content with formulas [formula]...[/formula], HTML markup, LaTeX, and styled pipe separators
+  // Helper to parse content with formulas [formula]...[/formula], inline formulas, HTML markup, and styled pipe separators
   const renderFormattedContent = (content) => {
     if (!content) return null;
 
-    // Clean and normalize LaTeX math
-    let cleanedContent = cleanMathFormulaText(content);
+    // Normalize LaTeX math delimiters ($$, \[, \(, $, [formula]) and multi-formula pipes
+    let normalizedContent = normalizeMathDelimiters(content);
 
     // Support short highlight tags: [hl=yellow]text[/hl], [hl=pink]text[/hl], etc.
-    cleanedContent = cleanedContent.replace(/\[(?:hl|mark)=([a-zA-Z0-9#]+)\]([\s\S]*?)\[\/(?:hl|mark)\]/gi, (_m, col, txt) => {
+    normalizedContent = normalizedContent.replace(/\[(?:hl|mark)=([a-zA-Z0-9#]+)\]([\s\S]*?)\[\/(?:hl|mark)\]/gi, (_m, col, txt) => {
       const hex = HIGHLIGHT_COLOR_MAP[col.toLowerCase()] || (col.startsWith('#') ? col : `#${col}`);
       return `<mark style="background-color: ${hex}; color: inherit; padding: 1px 3px; border-radius: 3px;">${txt}</mark>`;
     });
 
-    // Split by formula tags [formula]...[/formula]
-    const parts = cleanedContent.split(/(\[formula\][\s\S]*?\[\/formula\])/g);
+    // Split by formula tags [formula]...[/formula] and [formula-inline]...[/formula-inline]
+    const parts = normalizedContent.split(/(\[formula\][\s\S]*?\[\/formula\]|\[formula-inline\][\s\S]*?\[\/formula-inline\])/g);
 
     return parts.map((part, idx) => {
       if (part.startsWith('[formula]') && part.endsWith('[/formula]')) {
         const eq = part.replace(/^\[formula\]/, '').replace(/\[\/formula\]$/, '').trim();
+        const html = renderLatexToHtml(eq, { displayMode: !isCheatsheet });
         const FormulaElement = isCheatsheet ? 'span' : 'div';
         return (
           <FormulaElement
             key={idx} 
             data-formula={eq}
-            className={`formula-box font-mono text-[9px] text-neutral-900 tracking-tight select-text ${isCheatsheet ? 'formula-box-compact' : 'my-0.5 px-1.5 py-0.5 rounded bg-neutral-900/5 border border-neutral-900/10'}`}
-            dangerouslySetInnerHTML={{ __html: eq }}
+            className={`formula-box select-text ${isCheatsheet ? 'formula-box-compact' : 'formula-box-block my-0.5 px-1.5 py-0.5 rounded bg-neutral-900/5 border border-neutral-900/10'}`}
+            dangerouslySetInnerHTML={{ __html: html }}
+          />
+        );
+      } else if (part.startsWith('[formula-inline]') && part.endsWith('[/formula-inline]')) {
+        const eq = part.replace(/^\[formula-inline\]/, '').replace(/\[\/formula-inline\]$/, '').trim();
+        const html = renderLatexToHtml(eq, { displayMode: false });
+        return (
+          <span
+            key={idx}
+            data-formula={eq}
+            className="formula-inline select-text"
+            dangerouslySetInnerHTML={{ __html: html }}
           />
         );
       } else {
@@ -163,7 +130,7 @@ export default function CardItem({
   };
 
   const handleInsertFormula = () => {
-    const updated = `${card.content}\n[formula]f(x) = ผลลัพธ์สมการ[/formula]`;
+    const updated = `${card.content}\n[formula]f(x) = \\frac{a}{b}[/formula]`;
     onUpdateCard(card.id, { content: updated });
   };
 
@@ -189,7 +156,7 @@ export default function CardItem({
     if (!textareaRef.current) return;
     const start = textareaRef.current.selectionStart;
     const end = textareaRef.current.selectionEnd;
-    const selected = editContentText.substring(start, end) || 'f(x) = ผลลัพธ์';
+    const selected = editContentText.substring(start, end) || 'f(x) = \\frac{a}{b}';
     const before = editContentText.substring(0, start);
     const after = editContentText.substring(end);
     const updated = `${before}\n[formula]${selected}[/formula]\n${after}`;
@@ -250,9 +217,17 @@ export default function CardItem({
         borderColor: currentTheme.border 
       }}
       className={`border rounded-lg ${fontSizeConfig.cardPadding} shadow-xs hover:shadow-md transition-all duration-150 relative group h-fit flex flex-col ${isCheatsheet ? 'cheatsheet-card' : ''} ${
-        isDragOver ? 'ring-2 ring-neutral-900 scale-[1.01]' : ''
+        isDragOver ? 'ring-2 ring-indigo-600 scale-[1.01]' : ''
       }`}
     >
+      {/* Visual Drop Placement Indicators */}
+      {isDragOver && dragOverPosition === 'before' && (
+        <div className="absolute -top-1.5 left-0 right-0 h-1 bg-indigo-600 rounded-full z-40 shadow-sm pointer-events-none" />
+      )}
+      {isDragOver && dragOverPosition === 'after' && (
+        <div className="absolute -bottom-1.5 left-0 right-0 h-1 bg-indigo-600 rounded-full z-40 shadow-sm pointer-events-none" />
+      )}
+
       {/* Top Card Header */}
       <div 
         className={`flex items-start justify-between border-b pb-0.5 mb-1 gap-1 cheatsheet-card-header ${isCheatsheet ? 'mb-0.5 cheatsheet-flow-title' : ''}`}
@@ -373,7 +348,7 @@ export default function CardItem({
                   <span>บีบข้อย่อยเป็น | (ลดที่)</span>
                 </button>
 
-                {/* Transfer Page */}
+                {/* Transfer Page to End */}
                 <button
                   type="button"
                   onClick={() => {
@@ -383,8 +358,23 @@ export default function CardItem({
                   className="w-full text-left px-2 py-1.5 rounded hover:bg-neutral-100 text-neutral-800 flex items-center gap-1.5 text-[11px] cursor-pointer"
                 >
                   <ArrowRightLeft className="w-3 h-3 text-neutral-500" />
-                  <span>{pageIndex === 0 ? "ย้ายไปหน้า 2 (หลัง)" : "ย้ายไปหน้า 1 (หน้า)"}</span>
+                  <span>{pageIndex === 0 ? "ย้ายไปหน้า 2 (ต่อท้าย)" : "ย้ายไปหน้า 1 (ต่อท้าย)"}</span>
                 </button>
+
+                {/* Move to Top */}
+                {cardIndex > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onMoveCard(cardIndex, 0);
+                      setShowMoreMenu(false);
+                    }}
+                    className="w-full text-left px-2 py-1.5 rounded hover:bg-neutral-100 text-neutral-800 flex items-center gap-1.5 text-[11px] cursor-pointer"
+                  >
+                    <ChevronsUp className="w-3 h-3 text-indigo-600" />
+                    <span>ย้ายไปบนสุด</span>
+                  </button>
+                )}
 
                 {/* Move Up */}
                 {cardIndex > 0 && (
@@ -397,7 +387,7 @@ export default function CardItem({
                     className="w-full text-left px-2 py-1.5 rounded hover:bg-neutral-100 text-neutral-800 flex items-center gap-1.5 text-[11px] cursor-pointer"
                   >
                     <ArrowUp className="w-3 h-3 text-neutral-500" />
-                    <span>เลื่อนขึ้น</span>
+                    <span>เลื่อนขึ้น (1 ลำดับ)</span>
                   </button>
                 )}
 
@@ -412,7 +402,22 @@ export default function CardItem({
                     className="w-full text-left px-2 py-1.5 rounded hover:bg-neutral-100 text-neutral-800 flex items-center gap-1.5 text-[11px] cursor-pointer"
                   >
                     <ArrowDown className="w-3 h-3 text-neutral-500" />
-                    <span>เลื่อนลง</span>
+                    <span>เลื่อนลง (1 ลำดับ)</span>
+                  </button>
+                )}
+
+                {/* Move to End */}
+                {cardIndex < totalCards - 1 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onMoveCard(cardIndex, totalCards - 1);
+                      setShowMoreMenu(false);
+                    }}
+                    className="w-full text-left px-2 py-1.5 rounded hover:bg-neutral-100 text-neutral-800 flex items-center gap-1.5 text-[11px] cursor-pointer"
+                  >
+                    <ChevronsDown className="w-3 h-3 text-indigo-600" />
+                    <span>ย้ายไปท้ายสุด</span>
                   </button>
                 )}
 

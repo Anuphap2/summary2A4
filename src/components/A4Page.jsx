@@ -25,7 +25,8 @@ export default function A4Page({
   const a4MarkerRef = useRef(null);
   const [isOverflowing, setIsOverflowing] = useState(false);
   const [overflowPx, setOverflowPx] = useState(0);
-  const [dragOverCardIndex, setDragOverCardIndex] = useState(null);
+  const [dragOverInfo, setDragOverInfo] = useState(null); // { cardIndex: number, position: 'before' | 'after' }
+  const [isDragOverEnd, setIsDragOverEnd] = useState(false);
 
   const isLandscape = orientation === 'landscape';
   const layoutMode = page.layoutMode || 'masonry';
@@ -59,38 +60,69 @@ export default function A4Page({
     e.dataTransfer.setData('text/plain', cardId);
   };
 
-  const handleDragOver = (e, cIdx) => {
+  const handleDragOverCard = (e, cIdx) => {
     e.preventDefault();
-    setDragOverCardIndex(cIdx);
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'move';
+    const rect = e.currentTarget.getBoundingClientRect();
+    const isAfter = (e.clientY - rect.top) > (rect.height / 2);
+    setDragOverInfo({ cardIndex: cIdx, position: isAfter ? 'after' : 'before' });
+    setIsDragOverEnd(false);
   };
 
-  const handleDrop = (e, targetCardIndex) => {
+  const handleDropOnCard = (e, targetCardIndex) => {
     e.preventDefault();
+    e.stopPropagation();
     if (!draggedCardInfo) return;
 
-    const { fromPageIndex, fromCardIndex } = draggedCardInfo;
-    
+    const { fromPageIndex, fromCardIndex, cardId } = draggedCardInfo;
+    const position = dragOverInfo?.position || 'before';
+
     if (fromPageIndex === pageIndex) {
       // Reordering within the same page
-      onMoveCard(pageIndex, fromCardIndex, targetCardIndex);
+      if (position === 'after') {
+        const dest = fromCardIndex < targetCardIndex ? targetCardIndex : targetCardIndex + 1;
+        onMoveCard(pageIndex, fromCardIndex, dest);
+      } else {
+        const dest = fromCardIndex < targetCardIndex ? targetCardIndex - 1 : targetCardIndex;
+        onMoveCard(pageIndex, fromCardIndex, dest);
+      }
     } else {
       // Transfer across pages
-      onTransferPage(draggedCardInfo.cardId, pageIndex, targetCardIndex);
+      const dest = position === 'after' ? targetCardIndex + 1 : targetCardIndex;
+      onTransferPage(cardId, pageIndex, dest);
     }
 
-    setDragOverCardIndex(null);
+    setDragOverInfo(null);
+    setIsDragOverEnd(false);
     setDraggedCardInfo(null);
+  };
+
+  const handleDragOverEnd = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'move';
+    setIsDragOverEnd(true);
+    setDragOverInfo(null);
   };
 
   const handlePageDropAtEnd = (e) => {
     e.preventDefault();
+    e.stopPropagation();
     if (!draggedCardInfo) return;
-    const { fromPageIndex } = draggedCardInfo;
+    const { fromPageIndex, fromCardIndex, cardId } = draggedCardInfo;
     
-    if (fromPageIndex !== pageIndex) {
-      onTransferPage(draggedCardInfo.cardId, pageIndex, page.cards.length);
+    if (fromPageIndex === pageIndex) {
+      // Reordering to the end of the same page
+      if (fromCardIndex !== page.cards.length - 1) {
+        onMoveCard(pageIndex, fromCardIndex, page.cards.length - 1);
+      }
+    } else {
+      // Transfer from another page to the end of this page
+      onTransferPage(cardId, pageIndex, page.cards.length);
     }
-    setDragOverCardIndex(null);
+    setDragOverInfo(null);
+    setIsDragOverEnd(false);
     setDraggedCardInfo(null);
   };
 
@@ -249,7 +281,7 @@ export default function A4Page({
       {/* Physical A4 Canvas */}
       <div 
         ref={pageRef}
-        onDragOver={(e) => e.preventDefault()}
+        onDragOver={handleDragOverEnd}
         onDrop={handlePageDropAtEnd}
         className={`a4-page-container ${isLandscape ? 'landscape' : ''} ${layoutMode === 'cheatsheet' ? 'cheatsheet-mode' : ''} ${fontSizeConfig.class}`}
       >
@@ -305,13 +337,17 @@ export default function A4Page({
 
         {/* Cards Layout: Masonry Flow (Default) or Grid */}
         {layoutMode === 'cheatsheet' ? (
-          <div className={`${masonryColsClass} a4-cheatsheet-flow pb-0`}>
+          <div 
+            className={`${masonryColsClass} a4-cheatsheet-flow pb-0`}
+            onDragOver={handleDragOverEnd}
+            onDrop={handlePageDropAtEnd}
+          >
             {page.cards.map((card, cIdx) => (
               <div
                 key={card.id}
                 className="cheatsheet-flow-item"
-                onDragOver={(e) => handleDragOver(e, cIdx)}
-                onDrop={(e) => handleDrop(e, cIdx)}
+                onDragOver={(e) => handleDragOverCard(e, cIdx)}
+                onDrop={(e) => handleDropOnCard(e, cIdx)}
               >
                 <CardItem
                   card={card}
@@ -326,16 +362,37 @@ export default function A4Page({
                   onMoveCard={(fromIdx, toIdx) => onMoveCard(pageIndex, fromIdx, toIdx)}
                   onTransferPage={onTransferPage}
                   onSplitCard={onSplitCard ? (cardId) => onSplitCard(pageIndex, cardId) : undefined}
-                  isDragOver={dragOverCardIndex === cIdx}
+                  isDragOver={dragOverInfo?.cardIndex === cIdx}
+                  dragOverPosition={dragOverInfo?.cardIndex === cIdx ? dragOverInfo.position : null}
                   onDragStart={handleDragStart}
-                  onDragOver={handleDragOver}
-                  onDrop={handleDrop}
+                  onDragOver={(e) => handleDragOverCard(e, cIdx)}
+                  onDrop={(e) => handleDropOnCard(e, cIdx)}
                 />
               </div>
             ))}
 
+            {/* Dedicated Drop Zone at End when Dragging */}
+            {draggedCardInfo && (
+              <div
+                onDragOver={handleDragOverEnd}
+                onDrop={handlePageDropAtEnd}
+                className={`no-print cheatsheet-flow-item rounded-lg p-2.5 my-1 flex items-center justify-center text-center cursor-pointer border-2 border-dashed transition-all duration-150 ${
+                  isDragOverEnd 
+                    ? 'border-indigo-600 bg-indigo-100 text-indigo-950 scale-[1.01] shadow-md ring-2 ring-indigo-400 font-bold' 
+                    : 'border-indigo-400/80 bg-indigo-50/70 text-indigo-700 hover:border-indigo-600'
+                }`}
+              >
+                <span className="text-[9.5px] font-bold flex items-center gap-1.5">
+                  <span>📥</span>
+                  <span>วางที่นี่เพื่อต่อท้ายหน้า {page.pageNumber} (ลงในพื้นที่ว่าง)</span>
+                </span>
+              </div>
+            )}
+
             <div
               onClick={() => onAddCard(pageIndex)}
+              onDragOver={handleDragOverEnd}
+              onDrop={handlePageDropAtEnd}
               className="no-print cheatsheet-flow-item border-2 border-dashed border-neutral-300 hover:border-neutral-900 hover:bg-neutral-50 rounded-lg p-2 flex flex-col items-center justify-center text-center cursor-pointer transition group min-h-[45px]"
             >
               <Plus className="w-3.5 h-3.5 text-neutral-400 group-hover:text-neutral-900 group-hover:scale-110 transition" />
@@ -345,13 +402,17 @@ export default function A4Page({
             </div>
           </div>
         ) : layoutMode === 'masonry' ? (
-          <div className={`${masonryColsClass} pb-6`}>
+          <div 
+            className={`${masonryColsClass} pb-6`}
+            onDragOver={handleDragOverEnd}
+            onDrop={handlePageDropAtEnd}
+          >
             {page.cards.map((card, cIdx) => (
               <div 
                 key={card.id} 
                 className="a4-masonry-item"
-                onDragOver={(e) => handleDragOver(e, cIdx)}
-                onDrop={(e) => handleDrop(e, cIdx)}
+                onDragOver={(e) => handleDragOverCard(e, cIdx)}
+                onDrop={(e) => handleDropOnCard(e, cIdx)}
               >
                 <CardItem
                   card={card}
@@ -366,17 +427,38 @@ export default function A4Page({
                   onMoveCard={(fromIdx, toIdx) => onMoveCard(pageIndex, fromIdx, toIdx)}
                   onTransferPage={onTransferPage}
                   onSplitCard={onSplitCard ? (cardId) => onSplitCard(pageIndex, cardId) : undefined}
-                  isDragOver={dragOverCardIndex === cIdx}
+                  isDragOver={dragOverInfo?.cardIndex === cIdx}
+                  dragOverPosition={dragOverInfo?.cardIndex === cIdx ? dragOverInfo.position : null}
                   onDragStart={handleDragStart}
-                  onDragOver={handleDragOver}
-                  onDrop={handleDrop}
+                  onDragOver={(e) => handleDragOverCard(e, cIdx)}
+                  onDrop={(e) => handleDropOnCard(e, cIdx)}
                 />
               </div>
             ))}
 
+            {/* Dedicated Drop Zone at End when Dragging */}
+            {draggedCardInfo && (
+              <div
+                onDragOver={handleDragOverEnd}
+                onDrop={handlePageDropAtEnd}
+                className={`no-print a4-masonry-item rounded-lg p-2.5 my-1 flex items-center justify-center text-center cursor-pointer border-2 border-dashed transition-all duration-150 ${
+                  isDragOverEnd 
+                    ? 'border-indigo-600 bg-indigo-100 text-indigo-950 scale-[1.01] shadow-md ring-2 ring-indigo-400 font-bold' 
+                    : 'border-indigo-400/80 bg-indigo-50/70 text-indigo-700 hover:border-indigo-600'
+                }`}
+              >
+                <span className="text-[9.5px] font-bold flex items-center gap-1.5">
+                  <span>📥</span>
+                  <span>วางที่นี่เพื่อต่อท้ายหน้า {page.pageNumber} (ลงในพื้นที่ว่าง)</span>
+                </span>
+              </div>
+            )}
+
             {/* Quick Add Card Placeholder (No Print) */}
             <div 
               onClick={() => onAddCard(pageIndex)}
+              onDragOver={handleDragOverEnd}
+              onDrop={handlePageDropAtEnd}
               className="no-print a4-masonry-item border-2 border-dashed border-neutral-300 hover:border-neutral-900 hover:bg-neutral-50 rounded-lg p-2.5 flex flex-col items-center justify-center text-center cursor-pointer transition group min-h-[55px]"
             >
               <Plus className="w-3.5 h-3.5 text-neutral-400 group-hover:text-neutral-900 group-hover:scale-110 transition" />
@@ -386,12 +468,16 @@ export default function A4Page({
             </div>
           </div>
         ) : (
-          <div className={`grid ${gridColsClass} items-start ${fontSizeConfig.gap} h-full content-start pb-6`}>
+          <div 
+            className={`grid ${gridColsClass} items-start ${fontSizeConfig.gap} h-full content-start pb-6`}
+            onDragOver={handleDragOverEnd}
+            onDrop={handlePageDropAtEnd}
+          >
             {page.cards.map((card, cIdx) => (
               <div 
                 key={card.id}
-                onDragOver={(e) => handleDragOver(e, cIdx)}
-                onDrop={(e) => handleDrop(e, cIdx)}
+                onDragOver={(e) => handleDragOverCard(e, cIdx)}
+                onDrop={(e) => handleDropOnCard(e, cIdx)}
               >
                 <CardItem
                   card={card}
@@ -406,17 +492,38 @@ export default function A4Page({
                   onMoveCard={(fromIdx, toIdx) => onMoveCard(pageIndex, fromIdx, toIdx)}
                   onTransferPage={onTransferPage}
                   onSplitCard={onSplitCard ? (cardId) => onSplitCard(pageIndex, cardId) : undefined}
-                  isDragOver={dragOverCardIndex === cIdx}
+                  isDragOver={dragOverInfo?.cardIndex === cIdx}
+                  dragOverPosition={dragOverInfo?.cardIndex === cIdx ? dragOverInfo.position : null}
                   onDragStart={handleDragStart}
-                  onDragOver={handleDragOver}
-                  onDrop={handleDrop}
+                  onDragOver={(e) => handleDragOverCard(e, cIdx)}
+                  onDrop={(e) => handleDropOnCard(e, cIdx)}
                 />
               </div>
             ))}
 
+            {/* Dedicated Drop Zone at End when Dragging */}
+            {draggedCardInfo && (
+              <div
+                onDragOver={handleDragOverEnd}
+                onDrop={handlePageDropAtEnd}
+                className={`no-print col-span-full rounded-lg p-2.5 my-1 flex items-center justify-center text-center cursor-pointer border-2 border-dashed transition-all duration-150 ${
+                  isDragOverEnd 
+                    ? 'border-indigo-600 bg-indigo-100 text-indigo-950 scale-[1.01] shadow-md ring-2 ring-indigo-400 font-bold' 
+                    : 'border-indigo-400/80 bg-indigo-50/70 text-indigo-700 hover:border-indigo-600'
+                }`}
+              >
+                <span className="text-[9.5px] font-bold flex items-center gap-1.5">
+                  <span>📥</span>
+                  <span>วางที่นี่เพื่อต่อท้ายหน้า {page.pageNumber} (ลงในพื้นที่ว่าง)</span>
+                </span>
+              </div>
+            )}
+
             {/* Quick Add Card Placeholder (No Print) */}
             <div 
               onClick={() => onAddCard(pageIndex)}
+              onDragOver={handleDragOverEnd}
+              onDrop={handlePageDropAtEnd}
               className="no-print border-2 border-dashed border-neutral-300 hover:border-neutral-900 hover:bg-neutral-50 rounded-lg p-3 flex flex-col items-center justify-center text-center cursor-pointer transition group min-h-[70px]"
             >
               <Plus className="w-4 h-4 text-neutral-400 group-hover:text-neutral-900 group-hover:scale-110 transition" />

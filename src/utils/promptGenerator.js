@@ -46,9 +46,14 @@ export const generateSystemPrompt = ({ delimiter = '---' } = {}) => {
 6. เน้นชื่อศัพท์และคำสำคัญด้วย <b>คำสำคัญ:</b> ใช้ bullet • กับบรรทัดเนื้อหา
 7. ไฮไลท์เฉพาะจุดที่ควรจำหรือเปรียบเทียบด้วยแท็กสีที่แอปรองรับ:
    <mark style="background-color: #fef08a;">สำคัญ/ออกสอบ</mark>, <mark style="background-color: #bbf7d0;">นิยาม/ข้อดี</mark>, <mark style="background-color: #fbcfe8;">ข้อควรระวัง/ค่าที่เด่น</mark>, <mark style="background-color: #bae6fd;">ประเภท/ตัวอย่าง</mark>, <mark style="background-color: #fed7aa;">สูตร/การคำนวณ</mark>, <mark style="background-color: #e9d5ff;">หลักการ</mark>
-8. ครอบสูตร สมการ และนิพจน์คณิตศาสตร์ด้วย [formula]...[/formula]
+8. สูตรและสมการคณิตศาสตร์ (เว็บรองรับการแสดงผล KaTeX / LaTeX คุณภาพสูงเต็มรูปแบบ):
+   - เขียนสูตรด้วยไวยากรณ์ LaTeX มาตรฐาน เช่น \\frac{a}{b}, \\sqrt{x}, \\sum, \\int, \\times, x^2, x_i, \\approx
+   - บล็อกสูตรหรือสมการสำคัญ ให้ครอบด้วย [formula]สมการ LaTeX[/formula] หรือ $$สมการ LaTeX$$
+   - สมการหรือตัวแปรที่แทรกในบรรทัดเนื้อหา ให้ครอบด้วย $สมการ$ เช่น $f(x) = ax + b$ หรือ [formula]...[/formula]
+   - ตัวอย่าง: [formula]\\sigma(z) = \\frac{1}{1 + e^{-z}}[/formula] หรือ [formula]d = \\sqrt{(x_2 - x_1)^2 + (y_2 - y_1)^2}[/formula]
 9. จัดจำนวนกล่องตามเนื้อหาจริง ให้แต่ละหน้ามีเนื้อหาพอดีกับ A4 ไม่กำหนดจำนวนกล่องตายตัว และอย่าตัดสาระสำคัญเพียงเพื่อบีบให้สั้น
 10. ห้ามใส่คำเกริ่น คำทักทาย คำปิดท้าย หรือ code fence ให้เริ่มด้วย === หน้า 1 === ทันที
+11. ทุกกล่องต้องมีเนื้อหา ห้ามสร้างกล่องเปล่า และห้ามใส่ ${delim} ก่อนหรือหลังบรรทัดหัวหน้า === หน้า 1 === หรือ === หน้า 2 === หรือต่อท้ายกล่องสุดท้าย
 
 เนื้อหาที่ต้องการให้สรุป:
 [วางเนื้อหา เลกเชอร์ หรือสไลด์ตรงนี้]`;
@@ -93,7 +98,9 @@ export const compactContentWithPipeAndColor = (text) => {
     const trimmed = line.trim();
 
     // Check if line is empty or header or formula or section
-    const isFormula = trimmed.startsWith('[formula]') || trimmed.endsWith('[/formula]');
+    const isFormula = trimmed.startsWith('[formula]') || trimmed.endsWith('[/formula]') ||
+                      trimmed.startsWith('$$') || trimmed.endsWith('$$') ||
+                      trimmed.startsWith('\\[') || trimmed.endsWith('\\]');
     const isHeader = /^#{1,4}\s+/.test(trimmed) || /^===/.test(trimmed) || /^---/.test(trimmed);
     const isBulletItem = /^[-•*]\s+/.test(trimmed) || /^[0-9]+[.)]\s+/.test(trimmed);
 
@@ -130,20 +137,20 @@ export const getSampleUltraCompactNotes = (delim = '---') => {
 ### 1. สถาปัตยกรรมคอมพิวเตอร์ & CPU
 • <b>ALU:</b> <mark style="background-color: #fef08a;">คำนวณคณิตศาสตร์และตรรกะ</mark> | <b>CU:</b> ถอดรหัสคำสั่งและคุมสัญญาณ | <b>Register:</b> <mark style="background-color: #fbcfe8;">ความเร็วสูงสุดใน CPU</mark>
 • <b>วงรอบการทำงาน:</b> Fetch → Decode → Execute | <b>System Bus:</b> Data, Address, Control
-• [formula]Cycle Time = 1 / Frequency  |  CPI = Cycles / Instruction[/formula]
+• [formula]\\text{Cycle Time} = \\frac{1}{\\text{Frequency}}[/formula] | [formula]\\text{CPI} = \\frac{\\text{Cycles}}{\\text{Instruction}}[/formula]
 ${delim}
 ### 2. ลำดับชั้นหน่วยความจำ (Memory Hierarchy)
 • <b>Cache L1-L3:</b> <mark style="background-color: #fef08a;">เร็วสุด ความจุจำกัด</mark> | <b>RAM:</b> หน่วยความจำหลัก Volatile ดับแล้วหาย | <b>SSD/HDD:</b> บันทึกข้อมูลถาวร
 • <b>Virtual Memory:</b> ใช้พื้นที่ดิสก์จำลองเป็น RAM | <b>Paging:</b> แบ่งบล็อกขนาดเท่ากัน
-• [formula]Capacity = 2^AddressLines × DataBits[/formula]
+• [formula]\\text{Capacity} = 2^{\\text{AddressLines}} \\times \\text{DataBits}[/formula]
 ${delim}
 ### 3. บิต ไบต์ และการแปลงหน่วยข้อมูล
 • <b>Bit:</b> 0 หรือ 1 เล็กสุด | <b>Byte:</b> 8 Bits (256 สถานะ) | <b>สเต็ปแปลง:</b> 1 KB = 1024 B | 1 MB = 1024 KB
-• [formula]Bits ÷ 8 = Bytes → ÷ 1024 = KB → ÷ 1024 = MB[/formula]
+• [formula]\\text{Bits} \\div 8 = \\text{Bytes} \\to \\div 1024 = \\text{KB} \\to \\div 1024 = \\text{MB}[/formula]
 ${delim}
 ### 4. พีชคณิตบูลีน & Logic Gates
 • <b>AND Gate:</b> เป็น 1 เมื่อทุกอินพุตเป็น 1 | <b>OR Gate:</b> เป็น 1 เมื่อมีอินพุตใดเป็น 1
-• <b>De Morgan's Laws:</b> [formula]~(A ∧ B) = ~A ∨ ~B  |  ~(A ∨ B) = ~A ∧ ~B[/formula]
+• <b>De Morgan's Laws:</b> [formula]\\neg(A \\land B) = \\neg A \\lor \\neg B[/formula] | [formula]\\neg(A \\lor B) = \\neg A \\land \\neg B[/formula]
 
 === หน้า 2 ===
 ### 5. อัลกอริทึม & Time Complexity (Big-O)

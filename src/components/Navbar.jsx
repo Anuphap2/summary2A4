@@ -10,7 +10,8 @@ import {
   ZoomIn, 
   ZoomOut, 
   Type,
-  Bot
+  Bot,
+  Trash2
 } from 'lucide-react';
 import { FONT_SIZES } from '../data/defaultData';
 
@@ -29,7 +30,8 @@ export default function Navbar({
   onResetDefault,
   onExportJson,
   onImportJson,
-  onExportMarkdown
+  onExportMarkdown,
+  onCleanEmptyCards
 }) {
   const [showExportMenu, setShowExportMenu] = useState(false);
 
@@ -226,6 +228,15 @@ export default function Navbar({
                 >
                   <FileDown className="w-3.5 h-3.5 text-neutral-500" />
                   <span>บันทึกเป็น Markdown (.md)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => { onCleanEmptyCards(); setShowExportMenu(false); }}
+                  className="w-full text-left px-3 py-2 rounded-lg hover:bg-neutral-100 flex items-center gap-2 text-neutral-800 cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-neutral-500" />
+                  <span>ลบกล่องเปล่าออก (Clean)</span>
                 </button>
 
                 <div className="border-t border-neutral-100 my-1"></div>

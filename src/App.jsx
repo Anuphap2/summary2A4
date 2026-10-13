@@ -13,12 +13,18 @@ const STORAGE_KEY = 'a4_cheatsheet_studio_pages';
 const FONT_STORAGE_KEY = 'a4_cheatsheet_studio_font';
 
 export default function App() {
-  // 1. Pages state with localStorage persistence
+  // 1. Pages state with localStorage persistence (auto-prune empty cards)
   const [pages, setPages] = useState(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          return parsed.map(page => ({
+            ...page,
+            cards: (page.cards || []).filter(c => c && c.content && c.content.trim().length > 0)
+          }));
+        }
       }
     } catch (e) {
       console.error('Failed to load saved sheets', e);
@@ -111,7 +117,7 @@ export default function App() {
       tag: 'ทั่วไป',
       colorTheme: colors[Math.floor(Math.random() * colors.length)],
       content: `• สรุปสาระสำคัญ:
-- พิมพ์เนื้อหาของคุณที่นี่ หรือใส่สูตรคำนวณ [formula]สมการ = ตัวแปร[/formula]
+- พิมพ์เนื้อหาของคุณที่นี่ หรือใส่สูตรคำนวณ [formula]f(x) = \\frac{1}{1 + e^{-x}}[/formula]
 - รองรับ <b>ตัวหนา</b> และ <i>ตัวเอียง</i>`
     };
 
@@ -347,19 +353,20 @@ export default function App() {
     showNotification(`ย้ายกล่องสรุปท้ายสุดไปยังหน้า ${pageIndex + 2} เรียบร้อย`);
   };
 
-  // Smart Chunk Import Handler
+  // Smart Chunk Import Handler (filters out empty chunks)
   const handleImportChunks = ({ chunks, targetDestination, importAction }) => {
-    if (!chunks || chunks.length === 0) return;
+    const validChunks = (chunks || []).filter(c => c && c.content && c.content.trim().length > 0);
+    if (validChunks.length === 0) return;
 
     setPages(prev => {
       const copy = [...prev];
 
       // Auto mode: detect if chunks specify page 1 vs page 2
       if (targetDestination === 'auto') {
-        const hasP2 = chunks.some(c => c.targetPage === 2);
+        const hasP2 = validChunks.some(c => c.targetPage === 2);
         if (hasP2) {
-          const p1Chunks = chunks.filter(c => c.targetPage !== 2);
-          const p2Chunks = chunks.filter(c => c.targetPage === 2);
+          const p1Chunks = validChunks.filter(c => c.targetPage !== 2);
+          const p2Chunks = validChunks.filter(c => c.targetPage === 2);
 
           if (importAction === 'replace') {
             copy[0] = { ...copy[0], cards: p1Chunks };
@@ -374,9 +381,9 @@ export default function App() {
 
       if (targetDestination === 'balance' || targetDestination === 'auto') {
         // Distribute evenly between page 1 and page 2
-        const half = Math.ceil(chunks.length / 2);
-        const p1Chunks = chunks.slice(0, half);
-        const p2Chunks = chunks.slice(half);
+        const half = Math.ceil(validChunks.length / 2);
+        const p1Chunks = validChunks.slice(0, half);
+        const p2Chunks = validChunks.slice(half);
 
         if (importAction === 'replace') {
           copy[0] = { ...copy[0], cards: p1Chunks };
@@ -387,16 +394,16 @@ export default function App() {
         }
       } else if (targetDestination === 'page-1') {
         if (importAction === 'replace') {
-          copy[0] = { ...copy[0], cards: chunks };
+          copy[0] = { ...copy[0], cards: validChunks };
         } else {
-          copy[0] = { ...copy[0], cards: [...copy[0].cards, ...chunks] };
+          copy[0] = { ...copy[0], cards: [...copy[0].cards, ...validChunks] };
         }
       } else if (targetDestination === 'page-2') {
         if (copy[1]) {
           if (importAction === 'replace') {
-            copy[1] = { ...copy[1], cards: chunks };
+            copy[1] = { ...copy[1], cards: validChunks };
           } else {
-            copy[1] = { ...copy[1], cards: [...copy[1].cards, ...chunks] };
+            copy[1] = { ...copy[1], cards: [...copy[1].cards, ...validChunks] };
           }
         }
       }
@@ -404,7 +411,22 @@ export default function App() {
       return copy;
     });
 
-    showNotification(`จัดแบ่งและนำเข้าสำเร็จ! เพิ่ม ${chunks.length} กล่องสรุปแล้ว`);
+    showNotification(`จัดแบ่งและนำเข้าสำเร็จ! เพิ่ม ${validChunks.length} กล่องสรุปแล้ว`);
+  };
+
+  // Clean empty cards utility
+  const handleCleanEmptyCards = () => {
+    let removedCount = 0;
+    setPages(prev => prev.map(page => {
+      const filtered = page.cards.filter(c => c && c.content && c.content.trim().length > 0);
+      removedCount += (page.cards.length - filtered.length);
+      return { ...page, cards: filtered };
+    }));
+    if (removedCount > 0) {
+      showNotification(`ลบกล่องเปล่าออก ${removedCount} กล่องเรียบร้อย`, 'info');
+    } else {
+      showNotification('ไม่พบกล่องเปล่าในหน้ากระดาษ', 'info');
+    }
   };
 
   // Save explicitly
@@ -463,7 +485,7 @@ export default function App() {
       md += `*${p.subtitle}*\n\n`;
       p.cards.forEach(c => {
         md += `### ${c.title}\n`;
-        md += `${c.content.replace(/\[formula\]/g, '```\n').replace(/\[\/formula\]/g, '\n```')}\n\n`;
+        md += `${c.content.replace(/\[formula\]/g, '$$\n').replace(/\[\/formula\]/g, '\n$$').replace(/\[formula-inline\]/g, '$').replace(/\[\/formula-inline\]/g, '$')}\n\n`;
       });
       md += `---\n\n`;
     });
@@ -518,6 +540,7 @@ export default function App() {
         onExportJson={handleExportJson}
         onImportJson={handleImportJson}
         onExportMarkdown={handleExportMarkdown}
+        onCleanEmptyCards={handleCleanEmptyCards}
       />
 
       {/* Dynamic Print CSS for A4 Orientation */}
