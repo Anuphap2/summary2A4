@@ -90,29 +90,61 @@ export const FONT_SIZES = [
   {
     id: 'cheatsheet-pro',
     name: '⚡ ชีทสอบ A4 จิ๋วพิเศษ (7.2px) - เหมือน PDF',
-    class: 'text-[7.2px] leading-[1.18]',
+    class: 'text-[7.2px]',
     cardPadding: 'p-0.5',
     gap: 'gap-1'
   },
   {
     id: 'ultra-dense',
     name: 'จิ๋วมาก (8.2px)',
-    class: 'text-[8.2px] leading-[1.22]',
+    class: 'text-[8.2px]',
     cardPadding: 'p-1',
     gap: 'gap-1'
   },
   {
     id: 'normal',
     name: 'ปกติ (9.2px) - แนะนำ',
-    class: 'text-[9.2px] leading-[1.26]',
+    class: 'text-[9.2px]',
     cardPadding: 'p-1.5',
     gap: 'gap-1.5'
   },
   {
     id: 'comfortable',
     name: 'สบายตา (10.2px)',
-    class: 'text-[10.2px] leading-[1.30]',
+    class: 'text-[10.2px]',
     cardPadding: 'p-2',
     gap: 'gap-2'
   }
 ];
+
+export const LINE_HEIGHTS = [
+  {
+    id: 'dense',
+    name: 'ระยะบรรทัด: แน่น (1.28)',
+    value: '1.28',
+    lineGap: '1.5px',
+    desc: 'อัดเนื้อหาแน่น ไม่ทับกัน'
+  },
+  {
+    id: 'compact',
+    name: 'ระยะบรรทัด: กระชับ (1.38)',
+    value: '1.38',
+    lineGap: '2px',
+    desc: 'กระชับพอดีสำหรับชีท A4'
+  },
+  {
+    id: 'normal',
+    name: 'ระยะบรรทัด: ปกติ (1.48) - แนะนำ',
+    value: '1.48',
+    lineGap: '2.5px',
+    desc: 'มาตรฐาน สวยงาม วรรณยุกต์โปร่ง'
+  },
+  {
+    id: 'relaxed',
+    name: 'ระยะบรรทัด: โปร่งสบาย (1.60)',
+    value: '1.60',
+    lineGap: '4px',
+    desc: 'โปร่งสบาย อ่านง่ายสุด'
+  }
+];
+

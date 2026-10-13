@@ -10,14 +10,17 @@ import {
   ZoomIn, 
   ZoomOut, 
   Type,
+  AlignJustify,
   Bot,
   Trash2
 } from 'lucide-react';
-import { FONT_SIZES } from '../data/defaultData';
+import { FONT_SIZES, LINE_HEIGHTS } from '../data/defaultData';
 
 export default function Navbar({
   fontSizeId,
   setFontSizeId,
+  lineHeightId,
+  setLineHeightId,
   orientation,
   onChangeOrientation,
   zoomLevel,
@@ -119,10 +122,29 @@ export default function Navbar({
               value={fontSizeId}
               onChange={(e) => setFontSizeId(e.target.value)}
               className="bg-transparent font-medium text-neutral-800 focus:outline-none cursor-pointer text-xs"
+              title="เลือกขนาดตัวอักษร"
             >
               {FONT_SIZES.map(f => (
                 <option key={f.id} value={f.id}>
                   {f.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Line Spacing Selector (ระยะบรรทัด) */}
+          <div className="flex items-center gap-1.5 bg-neutral-100/90 border border-neutral-200 rounded-full px-2.5 py-1">
+            <AlignJustify className="w-3.5 h-3.5 text-neutral-500" />
+            <select
+              id="line-height-select"
+              value={lineHeightId}
+              onChange={(e) => setLineHeightId(e.target.value)}
+              className="bg-transparent font-medium text-neutral-800 focus:outline-none cursor-pointer text-xs"
+              title="เลือกระยะห่างระหว่างบรรทัด (Line Spacing)"
+            >
+              {LINE_HEIGHTS.map(lh => (
+                <option key={lh.id} value={lh.id}>
+                  {lh.name}
                 </option>
               ))}
             </select>

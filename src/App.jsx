@@ -4,13 +4,14 @@ import A4Page from './components/A4Page';
 import RawTextImporterModal from './components/RawTextImporterModal';
 import TextHighlightToolbar from './components/TextHighlightToolbar';
 import Toast from './components/Toast';
-import { initialPagesData, FONT_SIZES } from './data/defaultData';
+import { initialPagesData, FONT_SIZES, LINE_HEIGHTS } from './data/defaultData';
 import { generateSystemPrompt } from './utils/promptGenerator';
 import { removePage } from './utils/pageActions';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 
 const STORAGE_KEY = 'a4_cheatsheet_studio_pages';
 const FONT_STORAGE_KEY = 'a4_cheatsheet_studio_font';
+const LINE_HEIGHT_STORAGE_KEY = 'a4_cheatsheet_studio_line_height';
 
 export default function App() {
   // 1. Pages state with localStorage persistence (auto-prune empty cards)
@@ -32,9 +33,12 @@ export default function App() {
     return initialPagesData;
   });
 
-  // 2. Font configuration state
+  // 2. Font & Line-Height configuration state
   const [fontSizeId, setFontSizeId] = useState(() => {
     return localStorage.getItem(FONT_STORAGE_KEY) || 'normal';
+  });
+  const [lineHeightId, setLineHeightId] = useState(() => {
+    return localStorage.getItem(LINE_HEIGHT_STORAGE_KEY) || 'normal';
   });
 
   // 3. Orientation state ('portrait' | 'landscape')
@@ -55,6 +59,7 @@ export default function App() {
   const [draggedCardInfo, setDraggedCardInfo] = useState(null);
 
   const activeFontSize = FONT_SIZES.find(f => f.id === fontSizeId) || FONT_SIZES[1];
+  const activeLineHeight = LINE_HEIGHTS.find(lh => lh.id === lineHeightId) || LINE_HEIGHTS[2];
 
   // Auto-save to localStorage
   useEffect(() => {
@@ -68,6 +73,10 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem(FONT_STORAGE_KEY, fontSizeId);
   }, [fontSizeId]);
+
+  useEffect(() => {
+    localStorage.setItem(LINE_HEIGHT_STORAGE_KEY, lineHeightId);
+  }, [lineHeightId]);
 
   useEffect(() => {
     localStorage.setItem('a4_cheatsheet_orientation', orientation);
@@ -527,6 +536,8 @@ export default function App() {
       <Navbar
         fontSizeId={fontSizeId}
         setFontSizeId={setFontSizeId}
+        lineHeightId={lineHeightId}
+        setLineHeightId={setLineHeightId}
         orientation={orientation}
         onChangeOrientation={setOrientation}
         zoomLevel={zoomLevel}
@@ -636,6 +647,7 @@ export default function App() {
               pageIndex={pIdx}
               totalPages={pages.length}
               fontSizeConfig={activeFontSize}
+              lineHeightConfig={activeLineHeight}
               orientation={orientation}
               onUpdatePage={handleUpdatePage}
               onDeletePage={handleDeletePage}

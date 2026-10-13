@@ -114,7 +114,7 @@ export default function CardItem({
         const formattedPart = part
           .replace(/\n{3,}/g, '\n\n')
           .replace(/(\s+\|\s+|(?<=[^\s|])\s*\|\s*(?=[^\s|]))/g, ' <span class="inline-pipe-divider select-none">|</span> ')
-          .replace(/\n/g, '<br />');
+          .replace(/\n/g, '<br class="content-br" />');
 
         return (
           <span 

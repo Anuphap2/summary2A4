@@ -7,6 +7,7 @@ export default function A4Page({
   pageIndex, 
   totalPages, 
   fontSizeConfig, 
+  lineHeightConfig,
   orientation = 'portrait',
   onUpdatePage, 
   onDeletePage,
@@ -52,7 +53,7 @@ export default function A4Page({
     checkHeight();
     const timer = setTimeout(checkHeight, 250);
     return () => clearTimeout(timer);
-  }, [page.cards, fontSizeConfig, page.columns, orientation, page.layoutMode]);
+  }, [page.cards, fontSizeConfig, lineHeightConfig, page.columns, orientation, page.layoutMode]);
 
   // Drag handlers
   const handleDragStart = (e, cardId, pIdx, cIdx) => {
@@ -283,6 +284,10 @@ export default function A4Page({
         ref={pageRef}
         onDragOver={handleDragOverEnd}
         onDrop={handlePageDropAtEnd}
+        style={{
+          '--a4-line-height': lineHeightConfig?.value || '1.48',
+          '--a4-line-gap': lineHeightConfig?.lineGap || '2.5px'
+        }}
         className={`a4-page-container ${isLandscape ? 'landscape' : ''} ${layoutMode === 'cheatsheet' ? 'cheatsheet-mode' : ''} ${fontSizeConfig.class}`}
       >
         {/* Invisible Height Calibration Marker */}

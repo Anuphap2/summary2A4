@@ -144,24 +144,41 @@
 .cheatsheet-card .cheatsheet-card-content {
   break-inside: auto;
   min-height: 0;
-  line-height: 1.1;
+  line-height: var(--a4-line-height, 1.48);
   overflow-wrap: anywhere;
 }
 
-.cheatsheet-card .card-content-area {
+.cheatsheet-card .card-content-area,
+.card-content-area {
   padding: 0;
+  line-height: var(--a4-line-height, 1.48);
+  text-rendering: optimizeLegibility;
+}
+
+/* Bullet item / newline separation with breathing room */
+.card-content-area .content-br {
+  display: block;
+  content: "";
+  margin-top: var(--a4-line-gap, 2.5px);
+}
+
+mark {
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  line-height: inherit;
+  vertical-align: baseline;
 }
 
 .cheatsheet-card .formula-box,
 .cheatsheet-card .formula-box-compact {
   display: inline-block;
-  vertical-align: middle;
-  margin: 0.5px 1px;
-  padding: 0.5px 2.5px;
+  vertical-align: -0.15em;
+  margin: 0 1.5px;
+  padding: 0.5px 3px;
   border-radius: 2.5px;
   background-color: rgba(15, 23, 42, 0.035);
   border: 1px solid rgba(15, 23, 42, 0.09);
-  line-height: normal;
+  line-height: 1.1;
   white-space: normal;
 }
 
