@@ -229,7 +229,7 @@ export default function RawTextImporterModal({ isOpen, onClose, onImportChunks }
               </div>
 
               <div className="bg-white/90 border border-indigo-100 rounded-xl p-3 text-[11px] text-indigo-950 leading-relaxed">
-                <b>รูปแบบเดียวกับชีทปัจจุบัน:</b> สรุปลง A4 สองหน้า ใช้กล่องหัวข้อ เนื้อหากระชับต่อเนื่อง คั่นประเด็นด้วย | ไฮไลท์คำสำคัญ และจัดจำนวนกล่องตามเนื้อหา
+                <b>รูปแบบเดียวกับชีทปัจจุบัน:</b> สรุปลง A4 สองหน้า มีคำสั่งบังคับ AI ใส่ไฮไลท์สี <code className="bg-amber-100 text-amber-900 px-1 py-0.5 rounded font-mono font-bold">==คำสำคัญ==</code> และสูตรคณิตศาสตร์ให้อัตโนมัติทุกกล่อง นำผลลัพธ์จาก AI มาวางได้ทันที
               </div>
 
               {/* Prompt Action Buttons: Copy & Toggle Preview */}
