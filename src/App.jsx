@@ -5,8 +5,8 @@ import RawTextImporterModal from './components/RawTextImporterModal';
 import TextHighlightToolbar from './components/TextHighlightToolbar';
 import Toast from './components/Toast';
 import { initialPagesData, FONT_SIZES } from './data/defaultData';
+import { generateSystemPrompt } from './utils/promptGenerator';
 import { ChevronDown, ChevronUp } from 'lucide-react';
-
 
 const STORAGE_KEY = 'a4_cheatsheet_studio_pages';
 const FONT_STORAGE_KEY = 'a4_cheatsheet_studio_font';
@@ -464,6 +464,32 @@ export default function App() {
     showNotification('ส่งออกเป็นไฟล์ Markdown สำเร็จ');
   };
 
+  // Quick Copy AI System Prompt directly from Navbar
+  const handleQuickCopyAiPrompt = async () => {
+    try {
+      const prompt = generateSystemPrompt({
+        pages: '2-pages',
+        boxes: '4',
+        style: 'exam',
+        density: 'ultra-compact',
+        delimiter: '---'
+      });
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(prompt);
+      } else {
+        const textArea = document.createElement('textarea');
+        textArea.value = prompt;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
+      showNotification('🤖 คัดลอก System Prompt สั่ง AI (โหมดอัดแน่น คั่นด้วย | และสี) แล้ว! นำไปวางใน ChatGPT/Claude ได้ทันที');
+    } catch {
+      showNotification('ไม่สามารถคัดลอกได้ กรุณาเปิดหน้าต่างยัดข้อความดิบเพื่อคัดลอก', 'error');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-neutral-100 flex flex-col antialiased selection:bg-neutral-900 selection:text-white">
       
@@ -478,6 +504,7 @@ export default function App() {
         viewMode={viewMode}
         setViewMode={setViewMode}
         onOpenImporter={() => setIsImporterOpen(true)}
+        onQuickCopyAiPrompt={handleQuickCopyAiPrompt}
         onSaveContent={handleSaveContent}
         onResetDefault={handleResetDefault}
         onExportJson={handleExportJson}
@@ -516,7 +543,7 @@ export default function App() {
           </div>
 
           {showStudentGuide && (
-            <div className="mt-3 pt-3 border-t border-neutral-100 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-neutral-600">
+            <div className="mt-3 pt-3 border-t border-neutral-100 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5 text-xs text-neutral-600">
               <div className="p-2.5 rounded-xl bg-neutral-50 border border-neutral-100">
                 <div className="font-bold text-neutral-900 flex items-center gap-1.5 mb-1">
                   <span className="text-indigo-600 font-mono">01.</span> สลับแนวตั้ง / แนวนอน
@@ -531,16 +558,25 @@ export default function App() {
                   <span className="text-emerald-600 font-mono">02.</span> สังเกตแถบ "เตือนความยาว A4"
                 </div>
                 <p className="text-[11px] leading-relaxed">
-                  ด้านบนของแต่ละหน้าจะมีแถบวัดความสูงอัตโนมัติ หากมีเตือนสีแดง แสดงว่าเนื้อหายาวเกินแผ่นกระดาษ ให้นักศึกษาย้ายบางกล่องไปหน้า 2 หรือปรับฟอนต์เป็น <b>"จิ๋วมาก"</b>
+                  ด้านบนของแต่ละหน้ามีแถบวัดความสูงอัตโนมัติ หากเตือนสีแดง ให้ย้ายบางกล่องไปหน้า 2 หรือใช้ปุ่ม <b>"บีบข้อย่อยเป็น |"</b> เพื่อลดความสูงทันที
+                </p>
+              </div>
+
+              <div className="p-2.5 rounded-xl bg-indigo-50/70 border border-indigo-100">
+                <div className="font-bold text-indigo-950 flex items-center gap-1.5 mb-1">
+                  <span className="text-indigo-600 font-mono">03.</span> 🚀 โหมดอัดแน่นด้วย | และสี
+                </div>
+                <p className="text-[11px] leading-relaxed text-indigo-900">
+                  ใช้ปุ่ม <b>"คัดลอก Prompt AI"</b> สั่งให้ AI รวบข้อย่อยในแนวนอนคั่นด้วย <b>" | "</b> และไฮไลท์สี ลดพื้นที่ว่างได้กว่า 50% ไม่ต้องมานั่งจัดเอง!
                 </p>
               </div>
 
               <div className="p-2.5 rounded-xl bg-neutral-50 border border-neutral-100">
                 <div className="font-bold text-neutral-900 flex items-center gap-1.5 mb-1">
-                  <span className="text-amber-600 font-mono">03.</span> การพิมพ์ & ส่งออก PDF เป๊ะๆ
+                  <span className="text-amber-600 font-mono">04.</span> การพิมพ์ & ส่งออก PDF
                 </div>
                 <p className="text-[11px] leading-relaxed">
-                  เมื่อกดปุ่ม <b>"พิมพ์ / PDF"</b> ระบบจะส่งคำสั่งพิมพ์ตามแนวตั้ง/แนวนอนที่เลือกไว้โดยอัตโนมัติ ให้ตั้งค่าขอบ (Margins) เป็น <b>None/Default</b> จะได้สรุปพอดีเป๊ะ
+                  เมื่อกดปุ่ม <b>"พิมพ์ / PDF"</b> ระบบจะส่งคำสั่งพิมพ์ตามแนวที่เลือกไว้ ตั้งค่าขอบ (Margins) เป็น <b>None/Default</b> จะได้สรุป A4 พอดี 100%
                 </p>
               </div>
             </div>

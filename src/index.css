@@ -76,19 +76,31 @@
 }
 
 /* Multi-column layout for A4 summary cards */
-.a4-cols-1 { column-count: 1; column-gap: 8px; }
-.a4-cols-2 { column-count: 2; column-gap: 8px; }
-.a4-cols-3 { column-count: 3; column-gap: 8px; }
-.a4-cols-4 { column-count: 4; column-gap: 8px; }
+.a4-cols-1 { column-count: 1; column-gap: 6px; }
+.a4-cols-2 { column-count: 2; column-gap: 6px; }
+.a4-cols-3 { column-count: 3; column-gap: 6px; }
+.a4-cols-4 { column-count: 4; column-gap: 6px; }
 
-/* Masonry column break-inside avoid */
+/* Masonry column break-inside avoid - tight margins save critical A4 height */
 .a4-masonry-item {
   break-inside: avoid;
   page-break-inside: avoid;
   -webkit-column-break-inside: avoid;
   display: inline-block;
   width: 100%;
-  margin-bottom: 8px;
+  margin-bottom: 5px;
+}
+
+/* Styled inline pipe divider */
+.inline-pipe-divider {
+  display: inline-block;
+  color: #94a3b8;
+  font-weight: 700;
+  margin: 0 3px;
+  user-select: none;
+  vertical-align: middle;
+  font-size: 0.9em;
+  line-height: 1;
 }
 
 /* Code & Equation styling inside summary cards */

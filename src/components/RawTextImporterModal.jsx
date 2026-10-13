@@ -12,8 +12,15 @@ import {
   Eye,
   EyeOff,
   SlidersHorizontal,
-  RotateCcw
+  RotateCcw,
+  Zap
 } from 'lucide-react';
+import { 
+  generateSystemPrompt, 
+  compactContentWithPipeAndColor, 
+  getSampleUltraCompactNotes, 
+  HIGHLIGHT_COLOR_MAP 
+} from '../utils/promptGenerator';
 
 export default function RawTextImporterModal({ isOpen, onClose, onImportChunks }) {
   const [rawText, setRawText] = useState('');
@@ -25,12 +32,14 @@ export default function RawTextImporterModal({ isOpen, onClose, onImportChunks }
   const [promptPages, setPromptPages] = useState('2-pages'); // '2-pages' | '1-page'
   const [promptBoxes, setPromptBoxes] = useState('4'); // '4' | '6' | 'auto'
   const [promptStyle, setPromptStyle] = useState('exam'); // 'exam' | 'detailed'
+  const [promptDensity, setPromptDensity] = useState('ultra-compact'); // 'ultra-compact' | 'standard'
   const [showPromptPreview, setShowPromptPreview] = useState(false);
   const [copiedPrompt, setCopiedPrompt] = useState(false);
 
   // Target Destination & Options
   const [targetDestination, setTargetDestination] = useState('auto'); // 'auto' | 'balance' | 'page-1' | 'page-2'
   const [importAction, setImportAction] = useState('append'); // 'append' | 'replace'
+  const [autoCompactPipe, setAutoCompactPipe] = useState(true);
   const [autoFormula, setAutoFormula] = useState(true);
   const [autoBoldKeys, setAutoBoldKeys] = useState(true);
   
@@ -40,83 +49,14 @@ export default function RawTextImporterModal({ isOpen, onClose, onImportChunks }
 
   // Generate dynamic System Prompt for user to copy & paste into AI
   const systemPromptText = useMemo(() => {
-    const isTwoPages = promptPages === '2-pages';
-    const delim = customDelimiter.trim() || '---';
-    const boxesDesc = promptBoxes === 'auto' 
-      ? 'ประมาณ 4-6 กล่องต่อหน้า' 
-      : `${promptBoxes} กล่องต่อหน้า`;
-    const totalBoxesDesc = isTwoPages 
-      ? (promptBoxes === 'auto' ? '8-12 กล่อง' : `${Number(promptBoxes) * 2} กล่อง`)
-      : (promptBoxes === 'auto' ? '4-6 กล่อง' : `${promptBoxes} กล่อง`);
-
-    const pageInstruction = isTwoPages
-      ? `- สรุปสำหรับพิมพ์ลงกระดาษ A4 สองหน้า (หน้า 1 ด้านหน้า และ หน้า 2 ด้านหลัง) รวมทั้งหมดประมาณ ${totalBoxesDesc}
-- บรรทัดแรกสุดของหน้า 1 ให้ขึ้นต้นด้วย: === หน้า 1 ===
-- เมื่อจบเนื้อหาหน้า 1 และจะเริ่มหน้า 2 ให้คั่นด้วยบรรทัด: === หน้า 2 ===
-- แต่ละหน้าควรมี ${boxesDesc} เพื่อให้จัดวางลงหน้ากระดาษ A4 ได้พอดี ไม่ล้นหน้า`
-      : `- สรุปสำหรับพิมพ์ลงกระดาษ A4 หน้าเดียว (1 หน้า) จำนวนทั้งหมดประมาณ ${totalBoxesDesc}
-- บรรทัดแรกสุด ให้ขึ้นต้นด้วย: === หน้า 1 ===
-- ควรมี ${boxesDesc} เพื่อให้จัดวางลง 1 หน้า A4 ได้พอดี ไม่ล้นหน้า`;
-
-    const styleInstruction = promptStyle === 'exam'
-      ? `- สไตล์การสรุป: สรุปเข้มข้นสไตล์ Cheat Sheet สรุปสอบ เน้นคีย์เวิร์ด สูตร นิยาม และจุดที่มักออกสอบ
-- ใช้ Bullet Point สั้นกระชับ ตัดน้ำทิ้งทั้งหมด ให้เหลือเฉพาะแก่นความรู้`
-      : `- สไตล์การสรุป: สรุปเป็นระเบียบ เข้าใจง่าย อธิบายขั้นตอนและหลักการสำคัญอย่างครบถ้วน พร้อมตัวอย่างประกอบสั้นๆ`;
-
-    return `คุณคือผู้ช่วยสรุปเนื้อหาและสร้าง Cheat Sheet สรุปสอบระดับมืออาชีพ สำหรับพิมพ์ลงกระดาษ A4
-
-【เป้าหมาย】
-นำเนื้อหา/เอกสาร/สไลด์ที่ผู้ใช้ระบุ มาสรุปและจัดเป็น "กล่องสรุป (Cards)" เพื่อนำไปวางในโปรแกรมสร้างใบสรุป A4
-
-【กฎรูปแบบโครงสร้าง (Format Rules) ที่ต้องปฏิบัติตามอย่างเคร่งครัด】
-
-1. การจัดหน้ากระดาษ:
-${pageInstruction}
-
-2. การแบ่งกล่องสรุป (สำคัญที่สุด):
-- ให้คั่นระหว่างแต่ละกล่องสรุปด้วยเครื่องหมาย: ${delim}
-- บรรทัดแรกสุดของแต่ละกล่อง ให้ตั้งชื่อหัวข้อโดยขึ้นต้นด้วย "### [ลำดับ]. [ชื่อหัวข้อสั้นกระชับ]" เช่น "### 1. โครงสร้างข้อมูล Stack & Queue"
-- (ทางเลือก) สามารถระบุแท็กหมวดหมู่ในบรรทัดถัดมาได้ เช่น "[แท็ก: โครงสร้างข้อมูล]"
-
-3. การจัดฟอร์แมตเนื้อหาภายในกล่อง:
-${styleInstruction}
-- เน้นคำสำคัญ/ศัพท์เฉพาะ ด้วยแท็กตัวหนา: <b>คำสำคัญ:</b> คำอธิบาย
-- ไฮไลท์ข้อความสำคัญ (Highlighter) จุดที่ต้องจำแม่นๆ หรือจุดออกสอบ:
-  ให้ครอบด้วยแท็ก: <mark style="background-color: #fef08a;">ข้อความที่เน้น</mark>
-  (เฉดสีไฮไลท์ที่ระบบรองรับ: เหลือง #fef08a, เขียว #bbf7d0, ชมพู #fbcfe8, ฟ้า #bae6fd, ส้ม #fed7aa, ม่วง #e9d5ff)
-- หากมีสูตรคำนวณ สมการ หรือคณิตศาสตร์ ให้ครอบด้วยแท็ก: [formula]สมการที่นี่[/formula]
-- ความยาวเนื้อหาต่อกล่อง: ประมาณ 200 - 450 ตัวอักษร ให้กระชับพอดีกับการแสดงผลลงแผ่น A4
-
-4. ข้อห้าม:
-- ห้ามพิมพ์คำทักทาย เกริ่นนำ หรือข้อความปิดท้ายใดๆ (เช่น "นี่คือสรุปของคุณ...")
-- ให้ส่งผลลัพธ์เริ่มด้วยข้อมูลสรุปตามโครงสร้างทันที เพื่อให้คัดลอกไปวางได้ทันที 100%
-
---- 【ตัวอย่างผลลัพธ์ที่ถูกต้อง】 ---
-${isTwoPages ? `=== หน้า 1 ===\n` : `=== หน้า 1 ===\n`}### 1. สถาปัตยกรรมคอมพิวเตอร์ & CPU
-• <b>ALU (Arithmetic Logic Unit):</b> ทำหน้าที่ประมวลผล<mark style="background-color: #fef08a;">คำนวณคณิตศาสตร์และตรรกะ</mark>
-• <b>Control Unit (CU):</b> ถอดรหัสคำสั่งและสั่งการจังหวะการทำงาน
-• <b>Register:</b> หน่วยความจำ<mark style="background-color: #fbcfe8;">ความเร็วสูงสุด</mark>ในตัว CPU
-• [formula]Cycle Time = 1 / Frequency  |  CPI = Cycles / Instruction[/formula]
-${delim}
-### 2. ลำดับชั้นหน่วยความจำ (Memory Hierarchy)
-• <b>Register & Cache L1-L3:</b> ความเร็วสูงสุด ความจุจำกัด ต้นทุนสูง
-• <b>RAM:</b> หน่วยความจำหลัก ชั่วคราว (Volatile)
-• <b>Secondary Storage:</b> SSD/HDD บันทึกข้อมูลถาวร
-• [formula]Capacity = 2^AddressLines × DataBits[/formula]
-${isTwoPages ? `\n=== หน้า 2 ===\n### 3. อัลกอริทึมและการเรียงลำดับ (Sorting)
-• <b>Bubble Sort:</b> [formula]O(n²)[/formula] สลับสมาชิกคู่ติดกัน
-• <b>Quick Sort:</b> [formula]O(n log n)[/formula] เฉลี่ย <mark style="background-color: #fed7aa;">มี Pivot</mark>
-• <b>Binary Search:</b> [formula]O(log n)[/formula] <mark style="background-color: #bbf7d0;">ข้อมูลต้องเรียงลำดับก่อนเสมอ</mark>
-${delim}
-### 4. ความปลอดภัยข้อมูล (CIA Triad)
-• <mark style="background-color: #bae6fd;">Confidentiality:</mark> รักษาความลับ เข้ารหัสข้อมูล ป้องกันการดักฟัง
-• <mark style="background-color: #e9d5ff;">Integrity:</mark> ตรวจสอบความถูกต้องสมบูรณ์ด้วย Hashing
-• <b>Availability:</b> ป้องกันระบบล่ม มีระบบสำรองข้อมูล` : ''}
---- 【สิ้นสุดตัวอย่าง】 ---
-
-เนื้อหาที่ต้องการให้คุณสรุป:
-[วางเนื้อหา เลกเชอร์ หรือสไลด์ของคุณตรงนี้]`;
-  }, [promptPages, promptBoxes, promptStyle, customDelimiter]);
+    return generateSystemPrompt({
+      pages: promptPages,
+      boxes: promptBoxes,
+      style: promptStyle,
+      density: promptDensity,
+      delimiter: customDelimiter
+    });
+  }, [promptPages, promptBoxes, promptStyle, promptDensity, customDelimiter]);
 
   // Handle Copy Prompt to Clipboard
   const handleCopyPrompt = async () => {
@@ -248,6 +188,10 @@ ${delim}
       }
 
       // Post-process formatting
+      if (autoCompactPipe) {
+        body = compactContentWithPipeAndColor(body);
+      }
+
       if (autoBoldKeys) {
         body = body.replace(/^([A-Za-z0-9ก-๙\s]{2,25}):\s*/gm, '<b>$1:</b> ');
       }
@@ -257,20 +201,9 @@ ${delim}
       }
 
       // Normalize any highlight syntax from AI
-      const highlightColorMap = {
-        yellow: '#fef08a',
-        lime: '#bbf7d0',
-        green: '#bbf7d0',
-        pink: '#fbcfe8',
-        sky: '#bae6fd',
-        blue: '#bae6fd',
-        orange: '#fed7aa',
-        purple: '#e9d5ff',
-        violet: '#e9d5ff'
-      };
       // 1. [hl=color]...[/hl] or [mark=color]...[/mark]
       body = body.replace(/\[(?:hl|mark|highlight)=([#a-zA-Z0-9]+)\]([\s\S]*?)\[\/(?:hl|mark|highlight)\]/gi, (_m, col, txt) => {
-        const hex = highlightColorMap[col.toLowerCase()] || (col.startsWith('#') ? col : `#${col}`);
+        const hex = HIGHLIGHT_COLOR_MAP[col.toLowerCase()] || (col.startsWith('#') ? col : `#${col}`);
         return `<mark style="background-color: ${hex}; color: inherit; padding: 1px 3px; border-radius: 3px;">${txt}</mark>`;
       });
       // 2. Unstyled <mark>... -> default yellow
@@ -287,7 +220,7 @@ ${delim}
     });
 
     return sections;
-  }, [rawText, customDelimiter, autoFormula, autoBoldKeys]);
+  }, [rawText, customDelimiter, autoCompactPipe, autoFormula, autoBoldKeys]);
 
   // Synchronize manual edits with computed chunks
   const activeChunks = hasCustomEdits ? manualChunks : computedChunks;
@@ -351,61 +284,17 @@ ${delim}
     onClose();
   };
 
-  // Sample Output from AI matching the custom delimiter
-  const handleLoadSampleNotes = () => {
-    const delim = customDelimiter.trim() || '---';
-    setRawText(`=== หน้า 1 ===
-### 1. สถาปัตยกรรมคอมพิวเตอร์ & CPU
-• <b>ALU (Arithmetic Logic Unit):</b> ประมวลผล<mark style="background-color: #fef08a;">คำนวณคณิตศาสตร์และตรรกะ</mark>
-• <b>Control Unit (CU):</b> ถอดรหัสคำสั่งและสั่งการจังหวะการทำงาน
-• <b>Register:</b> หน่วยความจำ<mark style="background-color: #fbcfe8;">ความเร็วสูงสุด</mark>ในตัว CPU
-• [formula]Cycle Time = 1 / Frequency  |  CPI = Cycles / Instruction[/formula]
-${delim}
-### 2. ลำดับชั้นหน่วยความจำ (Memory Hierarchy)
-• <b>Cache L1/L2/L3:</b> หน่วยความจำแคชความเร็วสูงใกล้ชิด CPU
-• <b>RAM (Main Memory):</b> หน่วยความจำหลัก ชั่วคราว (Volatile)
-• <b>Secondary Storage:</b> SSD/HDD บันทึกข้อมูลถาวร
-• [formula]Capacity = 2^AddressLines × DataBits[/formula]
-${delim}
-### 3. บิต ไบต์ และการแปลงหน่วยข้อมูล
-• <b>Bit:</b> หน่วยข้อมูลเล็กสุด (0 หรือ 1)
-• <b>Byte:</b> 1 Byte = 8 Bits แทนค่าได้ 256 สถานะ
-• <b>สเต็ปแปลงหน่วย:</b>
-  - 1 KB = 1,024 Bytes  |  1 MB = 1,024 KB
-• [formula]Bits ÷ 8 = Bytes → ÷ 1024 = KB → ÷ 1024 = MB[/formula]
-${delim}
-### 4. พีชคณิตบูลีน & Logic Gates
-• <b>AND Gate:</b> เป็น 1 เมื่อทุกอินพุตเป็น 1
-• <b>OR Gate:</b> เป็น 1 เมื่อมีอินพุตใดอินพุตหนึ่งเป็น 1
-• <b>De Morgan's Laws:</b>
-  - [formula]~(A ∧ B) = ~A ∨ ~B[/formula]
-  - [formula]~(A ∨ B) = ~A ∧ ~B[/formula]
+  const handleManualCompactRawText = () => {
+    if (!rawText.trim()) return;
+    const compacted = compactContentWithPipeAndColor(rawText);
+    setRawText(compacted);
+    setHasCustomEdits(false);
+  };
 
-=== หน้า 2 ===
-### 5. อัลกอริทึม & Time Complexity (Big-O)
-• <b>O(1):</b> คงที่ เช่น เข้าถึงอาเรย์ตาม index
-• <b>O(log n):</b> Binary Search (<mark style="background-color: #bbf7d0;">ต้องเรียงข้อมูลก่อนเสมอ</mark>)
-• <b>O(n):</b> Linear Search ค้นหาทีละตัว
-• <b>O(n log n):</b> Merge Sort, Quick Sort (เฉลี่ย)
-• <b>O(n²):</b> Bubble Sort ในกรณีแย่สุด
-${delim}
-### 6. โครงสร้างข้อมูลพื้นฐาน (Data Structures)
-• <b>Stack (LIFO):</b> เข้าทีหลังออกก่อน เช่น ปุ่ม Undo
-• <b>Queue (FIFO):</b> เข้าก่อนออกก่อน เช่น คิวพิมพ์งาน
-• <b>Linked List:</b> แทรก/ลบข้อมูลได้เร็ว ขนาดขยายได้ยืดหยุ่น
-• <b>Hash Table:</b> ค้นหาเฉลี่ย O(1) ด้วยคีย์
-${delim}
-### 7. พื้นฐานระบบเครือข่าย & OSI Model
-• <b>OSI 7 Layers:</b>
-  1. Physical → 2. Data Link → 3. Network → 4. Transport
-  5. Session → 6. Presentation → 7. Application
-• <mark style="background-color: #bae6fd;">TCP:</mark> Connection-oriented เชื่อถือได้ เช็คสูญหาย
-• <mark style="background-color: #fed7aa;">UDP:</mark> Connectionless รวดเร็ว ไม่เช็คสูญหาย
-${delim}
-### 8. ความปลอดภัยคอมพิวเตอร์ (CIA Triad)
-• <b>Confidentiality:</b> รักษาความลับ เข้ารหัสข้อมูล ป้องกันการดักฟัง
-• <b>Integrity:</b> ความถูกต้องสมบูรณ์ ตรวจสอบด้วย Hashing
-• <b>Availability:</b> ความพร้อมใช้งาน ป้องกันล่มด้วยระบบสำรอง`);
+  // Sample Output from AI matching the custom delimiter (Ultra-compact format)
+  const handleLoadSampleNotes = () => {
+    const sample = getSampleUltraCompactNotes(customDelimiter.trim() || '---');
+    setRawText(sample);
     setHasCustomEdits(false);
   };
 
@@ -437,8 +326,9 @@ ${delim}
           </div>
           
           <button 
+            id="close-importer-modal-btn"
             onClick={onClose}
-            className="w-8 h-8 rounded-full border border-neutral-200 hover:bg-neutral-200 text-neutral-500 hover:text-neutral-900 flex items-center justify-center transition"
+            className="w-8 h-8 rounded-full border border-neutral-200 hover:bg-neutral-200 text-neutral-500 hover:text-neutral-900 flex items-center justify-center transition cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -468,9 +358,10 @@ ${delim}
                 </div>
                 
                 <button
+                  id="load-sample-notes-btn"
                   type="button"
                   onClick={handleLoadSampleNotes}
-                  className="text-[11px] text-indigo-700 hover:text-indigo-950 bg-indigo-100/70 hover:bg-indigo-200 px-2.5 py-1 rounded-full font-medium transition flex items-center gap-1"
+                  className="text-[11px] text-indigo-700 hover:text-indigo-950 bg-indigo-100/70 hover:bg-indigo-200 px-2.5 py-1 rounded-full font-medium transition flex items-center gap-1 cursor-pointer"
                 >
                   <Sparkles className="w-3 h-3 text-amber-500" />
                   <span>ลองใส่ตัวอย่างผลลัพธ์</span>
@@ -568,11 +459,54 @@ ${delim}
                   </div>
                 </div>
 
+                {/* Row 4: Space-Saving Density Mode (คั่นด้วย | หรือสี) */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 pt-1.5 border-t border-indigo-100">
+                  <div className="flex items-center gap-1">
+                    <Zap className="w-3 h-3 text-indigo-600 shrink-0" />
+                    <span className="text-[11px] font-bold text-indigo-950">ความประหยัดหน้า A4:</span>
+                  </div>
+                  <div className="flex items-center gap-1 bg-neutral-100 p-0.5 rounded-lg">
+                    <button
+                      type="button"
+                      onClick={() => setPromptDensity('ultra-compact')}
+                      className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition ${
+                        promptDensity === 'ultra-compact'
+                          ? 'bg-indigo-600 text-white shadow-xs'
+                          : 'text-neutral-600 hover:text-neutral-900'
+                      }`}
+                    >
+                      🚀 อัดแน่น คั่นด้วย | และสี (แนะนำ)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPromptDensity('standard')}
+                      className={`px-2 py-0.5 rounded-md text-[10px] font-medium transition ${
+                        promptDensity === 'standard'
+                          ? 'bg-indigo-600 text-white font-semibold shadow-xs'
+                          : 'text-neutral-600 hover:text-neutral-900'
+                      }`}
+                    >
+                      📄 แยกบรรทัดปกติ
+                    </button>
+                  </div>
+                </div>
+
+                {/* Ultra-dense explanation banner */}
+                {promptDensity === 'ultra-compact' && (
+                  <div className="text-[10px] text-indigo-900 bg-indigo-50/90 border border-indigo-200/80 p-2 rounded-lg leading-relaxed flex items-start gap-1.5">
+                    <span className="text-indigo-600 font-bold shrink-0">✨</span>
+                    <span>
+                      <b>สั่ง AI ให้จัดข้อย่อยเรียงแนวนอน คั่นด้วย " | " และไฮไลท์สี</b> ไม่เคาะบรรทัดใหม่พร่ำเพรื่อ ลดพื้นที่กระดาษ A4 ได้มากกว่า 50% โดยไม่ต้องมานั่งแก้เอง!
+                    </span>
+                  </div>
+                )}
+
               </div>
 
               {/* Prompt Action Buttons: Copy & Toggle Preview */}
               <div className="flex items-center gap-2 pt-0.5">
                 <button
+                  id="copy-system-prompt-btn"
                   type="button"
                   onClick={handleCopyPrompt}
                   className={`flex-1 py-2 px-3.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-xs cursor-pointer ${
@@ -595,9 +529,10 @@ ${delim}
                 </button>
 
                 <button
+                  id="toggle-prompt-preview-btn"
                   type="button"
                   onClick={() => setShowPromptPreview(!showPromptPreview)}
-                  className="px-2.5 py-2 rounded-xl text-xs font-medium border border-indigo-200 bg-white hover:bg-indigo-50 text-indigo-900 transition flex items-center gap-1.5"
+                  className="px-2.5 py-2 rounded-xl text-xs font-medium border border-indigo-200 bg-white hover:bg-indigo-50 text-indigo-900 transition flex items-center gap-1.5 cursor-pointer"
                   title="ดูข้อความ System Prompt ทั้งหมด"
                 >
                   {showPromptPreview ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
@@ -686,13 +621,25 @@ ${delim}
                   วางข้อความที่ได้จาก AI หรือข้อความของคุณที่นี่
                 </label>
                 {rawText.length > 0 && (
-                  <button
-                    onClick={() => { setRawText(''); setHasCustomEdits(false); }}
-                    className="text-[10.5px] text-rose-600 hover:text-rose-800 transition flex items-center gap-1"
-                  >
-                    <RotateCcw className="w-3 h-3" />
-                    <span>ล้างข้อความ</span>
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={handleManualCompactRawText}
+                      className="text-[10px] text-indigo-700 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2 py-0.5 rounded-full font-bold transition flex items-center gap-1 cursor-pointer"
+                      title="บีบรวมข้อย่อยที่ขึ้นบรรทัดใหม่ให้มาอยู่ในบรรทัดเดียวกันคั่นด้วย | เพื่อลดพื้นที่กระดาษ A4"
+                    >
+                      <Zap className="w-3 h-3 text-indigo-600" />
+                      <span>บีบข้อย่อยเป็น | (ลดที่)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setRawText(''); setHasCustomEdits(false); }}
+                      className="text-[10.5px] text-rose-600 hover:text-rose-800 transition flex items-center gap-1 cursor-pointer"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                      <span>ล้างข้อความ</span>
+                    </button>
+                  </div>
                 )}
               </div>
 
@@ -820,7 +767,19 @@ ${customDelimiter || '---'}
               </div>
 
               {/* Formatting Toggles */}
-              <div className="grid grid-cols-2 gap-2 text-[11px] text-neutral-700 pt-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-neutral-700 pt-1">
+                <label className="flex items-center gap-1.5 cursor-pointer sm:col-span-2 text-indigo-950 font-bold bg-indigo-50/90 border border-indigo-200/80 p-1.5 rounded-xl shadow-2xs">
+                  <input
+                    type="checkbox"
+                    checked={autoCompactPipe}
+                    onChange={(e) => setAutoCompactPipe(e.target.checked)}
+                    className="rounded accent-indigo-600 w-3.5 h-3.5"
+                  />
+                  <span className="flex items-center gap-1">
+                    <Zap className="w-3 h-3 text-indigo-600 shrink-0" />
+                    <span>บีบรวมข้อย่อยด้วย " | " อัตโนมัติ (ลดพื้นที่กระดาษ A4 ไม่ให้ล้นหน้า)</span>
+                  </span>
+                </label>
                 <label className="flex items-center gap-1.5 cursor-pointer">
                   <input
                     type="checkbox"

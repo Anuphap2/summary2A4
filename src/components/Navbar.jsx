@@ -9,7 +9,8 @@ import {
   FileDown, 
   ZoomIn, 
   ZoomOut, 
-  Type
+  Type,
+  Bot
 } from 'lucide-react';
 import { FONT_SIZES } from '../data/defaultData';
 
@@ -23,6 +24,7 @@ export default function Navbar({
   viewMode,
   setViewMode,
   onOpenImporter,
+  onQuickCopyAiPrompt,
   onSaveContent,
   onResetDefault,
   onExportJson,
@@ -55,9 +57,10 @@ export default function Navbar({
           </div>
         </div>
 
-        {/* Central Action: Star feature "ยัดข้อความดิบ & แบ่งท่อน" */}
+        {/* Central Actions: Star feature "ยัดข้อความดิบ & แบ่งท่อน" + "คัดลอก Prompt AI" */}
         <div className="flex items-center gap-2">
           <button
+            id="open-importer-btn"
             onClick={onOpenImporter}
             className="group relative px-4 py-2 rounded-full bg-neutral-900 hover:bg-black text-white text-xs font-bold transition shadow-sm hover:shadow flex items-center gap-2 cursor-pointer active:scale-95"
           >
@@ -66,6 +69,17 @@ export default function Navbar({
             <span className="bg-neutral-700 text-[10px] px-1.5 py-0.2 rounded-full font-mono text-neutral-300">
               Auto Split
             </span>
+          </button>
+
+          <button
+            id="quick-copy-prompt-btn"
+            type="button"
+            onClick={onQuickCopyAiPrompt}
+            className="px-3.5 py-2 rounded-full bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer active:scale-95 shadow-2xs"
+            title="คัดลอก System Prompt สั่ง AI (โหมดอัดแน่นด้วย | และสี ประหยัดกระดาษ A4) นำไปวางใน ChatGPT/Claude/Gemini ได้ทันที"
+          >
+            <Bot className="w-4 h-4 text-indigo-600" />
+            <span>คัดลอก Prompt AI (อัดแน่น)</span>
           </button>
         </div>
 

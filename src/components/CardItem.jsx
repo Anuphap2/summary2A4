@@ -12,9 +12,11 @@ import {
   Check,
   Highlighter,
   MoreHorizontal,
-  Scissors
+  Scissors,
+  Zap
 } from 'lucide-react';
 import { COLOR_THEMES } from '../data/defaultData';
+import { compactContentWithPipeAndColor, HIGHLIGHT_COLOR_MAP } from '../utils/promptGenerator';
 
 // Helper to clean and format LaTeX math syntax into readable symbols and formula badges
 const cleanMathFormulaText = (str) => {
@@ -112,12 +114,18 @@ export default function CardItem({
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, [showMoreMenu]);
 
-  // Helper to parse content with formulas [formula]...[/formula], HTML markup, and LaTeX
+  // Helper to parse content with formulas [formula]...[/formula], HTML markup, LaTeX, and styled pipe separators
   const renderFormattedContent = (content) => {
     if (!content) return null;
 
     // Clean and normalize LaTeX math
-    const cleanedContent = cleanMathFormulaText(content);
+    let cleanedContent = cleanMathFormulaText(content);
+
+    // Support short highlight tags: [hl=yellow]text[/hl], [hl=pink]text[/hl], etc.
+    cleanedContent = cleanedContent.replace(/\[(?:hl|mark)=([a-zA-Z0-9#]+)\]([\s\S]*?)\[\/(?:hl|mark)\]/gi, (_m, col, txt) => {
+      const hex = HIGHLIGHT_COLOR_MAP[col.toLowerCase()] || (col.startsWith('#') ? col : `#${col}`);
+      return `<mark style="background-color: ${hex}; color: inherit; padding: 1px 3px; border-radius: 3px;">${txt}</mark>`;
+    });
 
     // Split by formula tags [formula]...[/formula]
     const parts = cleanedContent.split(/(\[formula\][\s\S]*?\[\/formula\])/g);
@@ -129,16 +137,22 @@ export default function CardItem({
           <div 
             key={idx} 
             data-formula={eq}
-            className="formula-box my-1 px-1.5 py-0.5 rounded bg-neutral-900/5 border border-neutral-900/10 font-mono text-[9px] text-neutral-900 tracking-tight select-text"
+            className="formula-box my-0.5 px-1.5 py-0.5 rounded bg-neutral-900/5 border border-neutral-900/10 font-mono text-[9px] text-neutral-900 tracking-tight select-text"
             dangerouslySetInnerHTML={{ __html: eq }}
           />
         );
       } else {
         // Render regular lines with basic HTML support (<b>, <i>, <mark>, <br>)
+        // Compress excessive blank lines and style pipe divider | cleanly
+        const formattedPart = part
+          .replace(/\n{3,}/g, '\n\n')
+          .replace(/(\s+\|\s+|(?<=[^\s|])\s*\|\s*(?=[^\s|]))/g, ' <span class="inline-pipe-divider select-none">|</span> ')
+          .replace(/\n/g, '<br />');
+
         return (
           <span 
             key={idx} 
-            dangerouslySetInnerHTML={{ __html: part.replace(/\n/g, '<br />') }} 
+            dangerouslySetInnerHTML={{ __html: formattedPart }} 
           />
         );
       }
@@ -190,6 +204,33 @@ export default function CardItem({
     setEditContentText(updated);
   };
 
+  const handleInsertPipeInEditor = () => {
+    if (!textareaRef.current) return;
+    const start = textareaRef.current.selectionStart;
+    const end = textareaRef.current.selectionEnd;
+    const before = editContentText.substring(0, start);
+    const after = editContentText.substring(end);
+    const updated = `${before} | ${after}`;
+    setEditContentText(updated);
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.selectionStart = start + 3;
+        textareaRef.current.selectionEnd = start + 3;
+        textareaRef.current.focus();
+      }
+    }, 10);
+  };
+
+  const handleCompactCurrentCard = () => {
+    const compacted = compactContentWithPipeAndColor(card.content);
+    onUpdateCard(card.id, { content: compacted });
+  };
+
+  const handleCompactEditorText = () => {
+    const compacted = compactContentWithPipeAndColor(editContentText);
+    setEditContentText(compacted);
+  };
+
   const handleSaveInlineEdit = () => {
     onUpdateCard(card.id, { content: editContentText });
     setIsEditingContent(false);
@@ -211,7 +252,7 @@ export default function CardItem({
     >
       {/* Top Card Header */}
       <div 
-        className="flex items-start justify-between border-b pb-1 mb-1.5 gap-1"
+        className="flex items-start justify-between border-b pb-0.5 mb-1 gap-1"
         style={{ borderColor: `${currentTheme.border}` }}
       >
         <div className="flex items-start gap-1 flex-1 min-w-0 pr-1">
@@ -315,6 +356,20 @@ export default function CardItem({
                   </button>
                 )}
 
+                {/* Auto-Compact Sub-bullets with Pipe */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleCompactCurrentCard();
+                    setShowMoreMenu(false);
+                  }}
+                  className="w-full text-left px-2 py-1.5 rounded hover:bg-indigo-50 text-indigo-700 flex items-center gap-1.5 text-[11px] font-semibold cursor-pointer"
+                  title="บีบรวมข้อย่อยในกล่องนี้ให้เป็นแนวนอนคั่นด้วย | เพื่อประหยัดพื้นที่กระดาษ A4"
+                >
+                  <Zap className="w-3 h-3 text-indigo-600" />
+                  <span>บีบข้อย่อยเป็น | (ลดที่)</span>
+                </button>
+
                 {/* Transfer Page */}
                 <button
                   type="button"
@@ -407,7 +462,7 @@ export default function CardItem({
             />
             {/* Quick edit helper toolbar */}
             <div className="flex flex-wrap items-center justify-between gap-1 text-[9px] pt-1 border-t border-black/5">
-              <div className="flex items-center gap-1">
+              <div className="flex flex-wrap items-center gap-1">
                 <button
                   type="button"
                   onClick={() => handleInsertHighlightInEditor('#fef08a')}
@@ -416,6 +471,23 @@ export default function CardItem({
                 >
                   <Highlighter className="w-2.5 h-2.5 text-amber-600" />
                   + ไฮไลท์
+                </button>
+                <button
+                  type="button"
+                  onClick={handleInsertPipeInEditor}
+                  className="px-1.5 py-0.5 rounded bg-black/5 hover:bg-black/10 text-neutral-800 font-bold transition flex items-center gap-0.5 cursor-pointer"
+                  title="แทรกเครื่องหมาย | เพื่อคั่นประเด็นย่อยในบรรทัดเดียวกัน"
+                >
+                  + คั่น |
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCompactEditorText}
+                  className="px-1.5 py-0.5 rounded bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold transition flex items-center gap-0.5 cursor-pointer"
+                  title="บีบรวมข้อย่อยที่ขึ้นบรรทัดใหม่ให้มาอยู่ในบรรทัดเดียวกันคั่นด้วย |"
+                >
+                  <Zap className="w-2.5 h-2.5 text-indigo-600" />
+                  บีบเป็น |
                 </button>
                 <button
                   type="button"

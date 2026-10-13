@@ -33,6 +33,13 @@ const serializeContainerToContent = (container) => {
     box.parentNode.replaceChild(textNode, box);
   });
 
+  // Replace inline pipe dividers with plain " | "
+  const pipeDividers = clone.querySelectorAll('.inline-pipe-divider');
+  pipeDividers.forEach(pipe => {
+    const textNode = document.createTextNode(' | ');
+    pipe.parentNode.replaceChild(textNode, pipe);
+  });
+
   // Replace <br> with \n
   const brs = clone.querySelectorAll('br');
   brs.forEach(br => {
