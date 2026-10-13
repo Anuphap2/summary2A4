@@ -6,6 +6,7 @@ import TextHighlightToolbar from './components/TextHighlightToolbar';
 import Toast from './components/Toast';
 import { initialPagesData, FONT_SIZES } from './data/defaultData';
 import { generateSystemPrompt } from './utils/promptGenerator';
+import { removePage } from './utils/pageActions';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 
 const STORAGE_KEY = 'a4_cheatsheet_studio_pages';
@@ -86,6 +87,19 @@ export default function App() {
   // Page level updates
   const handleUpdatePage = (pageId, updates) => {
     setPages(prev => prev.map(p => p.id === pageId ? { ...p, ...updates } : p));
+  };
+
+  const handleDeletePage = (pageId) => {
+    const page = pages.find(p => p.id === pageId);
+    if (!page || pages.length <= 1) return;
+
+    const message = page.cards.length > 0
+      ? `ต้องการลบหน้า ${page.pageNumber} และกล่องสรุป ${page.cards.length} กล่องในหน้านี้ใช่หรือไม่?`
+      : `ต้องการลบหน้า ${page.pageNumber} ที่ว่างอยู่นี้ใช่หรือไม่?`;
+    if (!window.confirm(message)) return;
+
+    setPages(prev => removePage(prev, pageId));
+    showNotification(`ลบหน้า ${page.pageNumber} แล้ว`, 'info');
   };
 
   // Add new card to a page
@@ -467,13 +481,7 @@ export default function App() {
   // Quick Copy AI System Prompt directly from Navbar
   const handleQuickCopyAiPrompt = async () => {
     try {
-      const prompt = generateSystemPrompt({
-        pages: '2-pages',
-        boxes: '4',
-        style: 'exam',
-        density: 'ultra-compact',
-        delimiter: '---'
-      });
+      const prompt = generateSystemPrompt();
       if (navigator?.clipboard?.writeText) {
         await navigator.clipboard.writeText(prompt);
       } else {
@@ -484,7 +492,7 @@ export default function App() {
         document.execCommand('copy');
         document.body.removeChild(textArea);
       }
-      showNotification('🤖 คัดลอก System Prompt สั่ง AI (โหมดอัดแน่น คั่นด้วย | และสี) แล้ว! นำไปวางใน ChatGPT/Claude ได้ทันที');
+      showNotification('🤖 คัดลอก Prompt ชีท A4 รูปแบบเดียวกับเนื้อหาปัจจุบันแล้ว');
     } catch {
       showNotification('ไม่สามารถคัดลอกได้ กรุณาเปิดหน้าต่างยัดข้อความดิบเพื่อคัดลอก', 'error');
     }
@@ -607,6 +615,7 @@ export default function App() {
               fontSizeConfig={activeFontSize}
               orientation={orientation}
               onUpdatePage={handleUpdatePage}
+              onDeletePage={handleDeletePage}
               onAddCard={handleAddCard}
               onUpdateCard={handleUpdateCard}
               onDeleteCard={handleDeleteCard}

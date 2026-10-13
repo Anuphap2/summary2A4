@@ -28,11 +28,6 @@ export default function RawTextImporterModal({ isOpen, onClose, onImportChunks }
   // Feature: เหลือเฉพาะกำหนดเครื่องหมายคั่นเอง
   const [customDelimiter, setCustomDelimiter] = useState('---');
   
-  // AI System Prompt Generator Options
-  const [promptPages, setPromptPages] = useState('2-pages'); // '2-pages' | '1-page'
-  const [promptBoxes, setPromptBoxes] = useState('4'); // '4' | '6' | 'auto'
-  const [promptStyle, setPromptStyle] = useState('exam'); // 'exam' | 'detailed'
-  const [promptDensity, setPromptDensity] = useState('ultra-compact'); // 'ultra-compact' | 'standard'
   const [showPromptPreview, setShowPromptPreview] = useState(false);
   const [copiedPrompt, setCopiedPrompt] = useState(false);
 
@@ -47,16 +42,10 @@ export default function RawTextImporterModal({ isOpen, onClose, onImportChunks }
   const [manualChunks, setManualChunks] = useState([]);
   const [hasCustomEdits, setHasCustomEdits] = useState(false);
 
-  // Generate dynamic System Prompt for user to copy & paste into AI
+  // Keep the single System Prompt aligned with the selected card delimiter.
   const systemPromptText = useMemo(() => {
-    return generateSystemPrompt({
-      pages: promptPages,
-      boxes: promptBoxes,
-      style: promptStyle,
-      density: promptDensity,
-      delimiter: customDelimiter
-    });
-  }, [promptPages, promptBoxes, promptStyle, promptDensity, customDelimiter]);
+    return generateSystemPrompt({ delimiter: customDelimiter });
+  }, [customDelimiter]);
 
   // Handle Copy Prompt to Clipboard
   const handleCopyPrompt = async () => {
@@ -368,139 +357,8 @@ export default function RawTextImporterModal({ isOpen, onClose, onImportChunks }
                 </button>
               </div>
 
-              {/* Prompt Customization Options */}
-              <div className="bg-white/90 border border-indigo-100 rounded-xl p-2.5 space-y-2 text-xs">
-                
-                {/* Row 1: Page Layout */}
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[11px] font-semibold text-neutral-600">จำนวนหน้าสรุป:</span>
-                  <div className="flex items-center gap-1 bg-neutral-100 p-0.5 rounded-lg">
-                    <button
-                      type="button"
-                      onClick={() => setPromptPages('2-pages')}
-                      className={`px-2 py-0.5 rounded-md text-[10.5px] font-semibold transition ${
-                        promptPages === '2-pages'
-                          ? 'bg-indigo-600 text-white shadow-xs'
-                          : 'text-neutral-600 hover:text-neutral-900'
-                      }`}
-                    >
-                      📄 2 หน้า (หน้า-หลัง)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPromptPages('1-page')}
-                      className={`px-2 py-0.5 rounded-md text-[10.5px] font-semibold transition ${
-                        promptPages === '1-page'
-                          ? 'bg-indigo-600 text-white shadow-xs'
-                          : 'text-neutral-600 hover:text-neutral-900'
-                      }`}
-                    >
-                      📄 1 หน้าเดียว
-                    </button>
-                  </div>
-                </div>
-
-                {/* Row 2: Density / Boxes per Page */}
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[11px] font-semibold text-neutral-600">ความหนาแน่น:</span>
-                  <div className="flex items-center gap-1 bg-neutral-100 p-0.5 rounded-lg">
-                    <button
-                      type="button"
-                      onClick={() => setPromptBoxes('4')}
-                      className={`px-2 py-0.5 rounded-md text-[10.5px] font-medium transition ${
-                        promptBoxes === '4' ? 'bg-indigo-600 text-white font-semibold' : 'text-neutral-600'
-                      }`}
-                    >
-                      4 กล่อง/หน้า (อ่านสบาย)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPromptBoxes('6')}
-                      className={`px-2 py-0.5 rounded-md text-[10.5px] font-medium transition ${
-                        promptBoxes === '6' ? 'bg-indigo-600 text-white font-semibold' : 'text-neutral-600'
-                      }`}
-                    >
-                      6 กล่อง/หน้า (อัดแน่น)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPromptBoxes('auto')}
-                      className={`px-2 py-0.5 rounded-md text-[10.5px] font-medium transition ${
-                        promptBoxes === 'auto' ? 'bg-indigo-600 text-white font-semibold' : 'text-neutral-600'
-                      }`}
-                    >
-                      พอดีเนื้อหา
-                    </button>
-                  </div>
-                </div>
-
-                {/* Row 3: Summary Style */}
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[11px] font-semibold text-neutral-600">สไตล์สรุป:</span>
-                  <div className="flex items-center gap-1 bg-neutral-100 p-0.5 rounded-lg">
-                    <button
-                      type="button"
-                      onClick={() => setPromptStyle('exam')}
-                      className={`px-2 py-0.5 rounded-md text-[10.5px] font-medium transition ${
-                        promptStyle === 'exam' ? 'bg-indigo-600 text-white font-semibold' : 'text-neutral-600'
-                      }`}
-                    >
-                      🎯 เน้นสอบ (CheatSheet)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPromptStyle('detailed')}
-                      className={`px-2 py-0.5 rounded-md text-[10.5px] font-medium transition ${
-                        promptStyle === 'detailed' ? 'bg-indigo-600 text-white font-semibold' : 'text-neutral-600'
-                      }`}
-                    >
-                      📖 ละเอียด เข้าใจง่าย
-                    </button>
-                  </div>
-                </div>
-
-                {/* Row 4: Space-Saving Density Mode (คั่นด้วย | หรือสี) */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 pt-1.5 border-t border-indigo-100">
-                  <div className="flex items-center gap-1">
-                    <Zap className="w-3 h-3 text-indigo-600 shrink-0" />
-                    <span className="text-[11px] font-bold text-indigo-950">ความประหยัดหน้า A4:</span>
-                  </div>
-                  <div className="flex items-center gap-1 bg-neutral-100 p-0.5 rounded-lg">
-                    <button
-                      type="button"
-                      onClick={() => setPromptDensity('ultra-compact')}
-                      className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition ${
-                        promptDensity === 'ultra-compact'
-                          ? 'bg-indigo-600 text-white shadow-xs'
-                          : 'text-neutral-600 hover:text-neutral-900'
-                      }`}
-                    >
-                      🚀 อัดแน่น คั่นด้วย | และสี (แนะนำ)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPromptDensity('standard')}
-                      className={`px-2 py-0.5 rounded-md text-[10px] font-medium transition ${
-                        promptDensity === 'standard'
-                          ? 'bg-indigo-600 text-white font-semibold shadow-xs'
-                          : 'text-neutral-600 hover:text-neutral-900'
-                      }`}
-                    >
-                      📄 แยกบรรทัดปกติ
-                    </button>
-                  </div>
-                </div>
-
-                {/* Ultra-dense explanation banner */}
-                {promptDensity === 'ultra-compact' && (
-                  <div className="text-[10px] text-indigo-900 bg-indigo-50/90 border border-indigo-200/80 p-2 rounded-lg leading-relaxed flex items-start gap-1.5">
-                    <span className="text-indigo-600 font-bold shrink-0">✨</span>
-                    <span>
-                      <b>สั่ง AI ให้จัดข้อย่อยเรียงแนวนอน คั่นด้วย " | " และไฮไลท์สี</b> ไม่เคาะบรรทัดใหม่พร่ำเพรื่อ ลดพื้นที่กระดาษ A4 ได้มากกว่า 50% โดยไม่ต้องมานั่งแก้เอง!
-                    </span>
-                  </div>
-                )}
-
+              <div className="bg-white/90 border border-indigo-100 rounded-xl p-3 text-[11px] text-indigo-950 leading-relaxed">
+                <b>รูปแบบเดียวกับชีทปัจจุบัน:</b> สรุปลง A4 สองหน้า ใช้กล่องหัวข้อ เนื้อหากระชับต่อเนื่อง คั่นประเด็นด้วย | ไฮไลท์คำสำคัญ และจัดจำนวนกล่องตามเนื้อหา
               </div>
 
               {/* Prompt Action Buttons: Copy & Toggle Preview */}

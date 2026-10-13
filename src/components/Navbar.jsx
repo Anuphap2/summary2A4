@@ -76,10 +76,10 @@ export default function Navbar({
             type="button"
             onClick={onQuickCopyAiPrompt}
             className="px-3.5 py-2 rounded-full bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer active:scale-95 shadow-2xs"
-            title="คัดลอก System Prompt สั่ง AI (โหมดอัดแน่นด้วย | และสี ประหยัดกระดาษ A4) นำไปวางใน ChatGPT/Claude/Gemini ได้ทันที"
+            title="คัดลอก Prompt ชีท A4 รูปแบบเดียวกับเนื้อหาปัจจุบัน"
           >
             <Bot className="w-4 h-4 text-indigo-600" />
-            <span>คัดลอก Prompt AI (อัดแน่น)</span>
+            <span>คัดลอก Prompt ชีท A4</span>
           </button>
         </div>
 

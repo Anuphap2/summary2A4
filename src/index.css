@@ -65,10 +65,24 @@
   transition: all 0.2s ease;
 }
 
+/* Cheatsheet ultra-compact mode saves ~18% paper space */
+.a4-page-container.cheatsheet-mode {
+  padding: 4.5mm 5mm;
+}
+
 .a4-page-container.landscape {
   width: 297mm;
   min-height: 210mm;
   padding: 6.5mm;
+}
+
+.a4-page-container.landscape.cheatsheet-mode {
+  padding: 4mm 4.5mm;
+}
+
+.a4-page-container.cheatsheet-mode .a4-page-header {
+  padding-bottom: 0.5mm;
+  margin-bottom: 1mm;
 }
 
 .a4-page-container:hover {
@@ -81,7 +95,80 @@
 .a4-cols-3 { column-count: 3; column-gap: 6px; }
 .a4-cols-4 { column-count: 4; column-gap: 6px; }
 
-/* Masonry column break-inside avoid - tight margins save critical A4 height */
+/* Continuous Cheatsheet Flow (like newspaper / exam cheatsheet) */
+.a4-cheatsheet-flow {
+  width: 100%;
+  column-gap: 2.5mm;
+  column-fill: balance;
+  text-align: left;
+}
+
+/* In cheatsheet flow, long items can break across columns to avoid bottom white holes */
+.cheatsheet-flow-item {
+  break-inside: auto;
+  page-break-inside: auto;
+  -webkit-column-break-inside: auto;
+  display: block;
+  margin-bottom: 0.25mm;
+  position: relative;
+}
+
+/* Prevent section titles from being orphaned at the bottom of a column */
+.cheatsheet-flow-title {
+  break-after: avoid;
+  page-break-after: avoid;
+  -webkit-column-break-after: avoid;
+}
+
+.cheatsheet-card {
+  display: block;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0;
+  background: transparent !important;
+  box-shadow: none;
+  transition: none;
+}
+
+.cheatsheet-card .cheatsheet-card-header {
+  margin-bottom: 0.35mm;
+}
+
+.cheatsheet-card-header,
+.cheatsheet-card-title {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.cheatsheet-card .cheatsheet-card-content {
+  break-inside: auto;
+  min-height: 0;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+
+.cheatsheet-card .card-content-area {
+  padding: 0;
+}
+
+.cheatsheet-card .formula-box-compact {
+  display: inline;
+  margin: 0;
+  padding: 0 0.25mm;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  font-size: inherit !important;
+  font-weight: 700;
+  line-height: inherit;
+  white-space: normal;
+}
+
+.cheatsheet-card .inline-pipe-divider {
+  margin-inline: 1px;
+}
+
+/* Classic Masonry column break-inside avoid - tight margins save critical A4 height */
 .a4-masonry-item {
   break-inside: avoid;
   page-break-inside: avoid;
@@ -141,6 +228,10 @@
     box-shadow: none !important;
     page-break-after: always !important;
     break-after: page !important;
+  }
+
+  .a4-page-container.cheatsheet-mode {
+    padding: 3.5mm 4mm !important;
   }
 
   .a4-page-container.landscape {

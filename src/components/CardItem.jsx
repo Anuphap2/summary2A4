@@ -73,6 +73,7 @@ export default function CardItem({
   cardIndex, 
   totalCards, 
   fontSizeConfig, 
+  layoutMode = 'masonry',
   onUpdateCard, 
   onDeleteCard, 
   onDuplicateCard, 
@@ -92,6 +93,7 @@ export default function CardItem({
   const moreMenuRef = useRef(null);
 
   const currentTheme = COLOR_THEMES.find(t => t.id === card.colorTheme) || COLOR_THEMES[0];
+  const isCheatsheet = layoutMode === 'cheatsheet';
 
   // Auto-resize title textarea on mount and title change
   useEffect(() => {
@@ -133,11 +135,12 @@ export default function CardItem({
     return parts.map((part, idx) => {
       if (part.startsWith('[formula]') && part.endsWith('[/formula]')) {
         const eq = part.replace(/^\[formula\]/, '').replace(/\[\/formula\]$/, '').trim();
+        const FormulaElement = isCheatsheet ? 'span' : 'div';
         return (
-          <div 
+          <FormulaElement
             key={idx} 
             data-formula={eq}
-            className="formula-box my-0.5 px-1.5 py-0.5 rounded bg-neutral-900/5 border border-neutral-900/10 font-mono text-[9px] text-neutral-900 tracking-tight select-text"
+            className={`formula-box font-mono text-[9px] text-neutral-900 tracking-tight select-text ${isCheatsheet ? 'formula-box-compact' : 'my-0.5 px-1.5 py-0.5 rounded bg-neutral-900/5 border border-neutral-900/10'}`}
             dangerouslySetInnerHTML={{ __html: eq }}
           />
         );
@@ -246,13 +249,13 @@ export default function CardItem({
         backgroundColor: currentTheme.bg,
         borderColor: currentTheme.border 
       }}
-      className={`border rounded-lg ${fontSizeConfig.cardPadding} shadow-xs hover:shadow-md transition-all duration-150 relative group h-fit flex flex-col ${
+      className={`border rounded-lg ${fontSizeConfig.cardPadding} shadow-xs hover:shadow-md transition-all duration-150 relative group h-fit flex flex-col ${isCheatsheet ? 'cheatsheet-card' : ''} ${
         isDragOver ? 'ring-2 ring-neutral-900 scale-[1.01]' : ''
       }`}
     >
       {/* Top Card Header */}
       <div 
-        className="flex items-start justify-between border-b pb-0.5 mb-1 gap-1"
+        className={`flex items-start justify-between border-b pb-0.5 mb-1 gap-1 cheatsheet-card-header ${isCheatsheet ? 'mb-0.5 cheatsheet-flow-title' : ''}`}
         style={{ borderColor: `${currentTheme.border}` }}
       >
         <div className="flex items-start gap-1 flex-1 min-w-0 pr-1">
@@ -272,7 +275,7 @@ export default function CardItem({
             rows={1}
             style={{ color: currentTheme.accent }}
             placeholder="หัวข้อกล่อง..."
-            className="font-extrabold text-[11px] leading-snug bg-transparent border-b border-transparent hover:border-neutral-300 focus:border-neutral-900 focus:outline-none w-full px-0.5 py-0.2 resize-none overflow-hidden"
+            className={`font-extrabold ${isCheatsheet ? 'text-[8px]' : 'text-[11px]'} leading-snug bg-transparent border-b border-transparent hover:border-neutral-300 focus:border-neutral-900 focus:outline-none w-full px-0.5 py-0.2 resize-none overflow-hidden cheatsheet-card-title`}
             onInput={(e) => {
               e.target.style.height = 'auto';
               e.target.style.height = `${e.target.scrollHeight}px`;
@@ -447,7 +450,7 @@ export default function CardItem({
       </div>
 
       {/* Card Content Area */}
-      <div className="min-h-[35px] text-neutral-800 leading-tight">
+      <div className={`min-h-[35px] text-neutral-800 leading-tight ${isCheatsheet ? 'min-h-0' : ''} cheatsheet-card-content`}>
         {isEditingContent ? (
           /* Inline Text Editor */
           <div className="flex flex-col gap-1.5 my-1 animate-in fade-in duration-100">

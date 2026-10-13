@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import CardItem from './CardItem';
-import { Plus, AlertTriangle, CheckCircle2, Columns2, Columns3, LayoutList } from 'lucide-react';
+import { Plus, AlertTriangle, CheckCircle2, Columns2, Columns3, LayoutList, Trash2 } from 'lucide-react';
 
 export default function A4Page({ 
   page, 
@@ -9,6 +9,7 @@ export default function A4Page({
   fontSizeConfig, 
   orientation = 'portrait',
   onUpdatePage, 
+  onDeletePage,
   onAddCard, 
   onUpdateCard, 
   onDeleteCard, 
@@ -117,6 +118,19 @@ export default function A4Page({
           <span className="text-[11px] text-neutral-500 font-mono">
             {page.cards.length} กล่องสรุป
           </span>
+          {onDeletePage && (
+            <button
+              type="button"
+              disabled={totalPages <= 1}
+              onClick={() => onDeletePage(page.id)}
+              title={totalPages <= 1 ? 'ต้องเหลือหน้ากระดาษอย่างน้อย 1 หน้า' : 'ลบหน้ากระดาษ A4 นี้'}
+              aria-label={`ลบหน้า ${page.pageNumber}`}
+              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-semibold text-rose-700 hover:bg-rose-50 transition cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+            >
+              <Trash2 className="w-3 h-3" />
+              <span>ลบหน้า</span>
+            </button>
+          )}
           <span className="text-[10px] bg-neutral-200/80 text-neutral-700 px-2 py-0.5 rounded-full font-medium">
             {isLandscape ? 'แนวนอน' : 'แนวตั้ง'}
           </span>
@@ -151,12 +165,26 @@ export default function A4Page({
             </div>
           )}
 
-          {/* Layout Mode Selector: Masonry vs Grid */}
+          {/* Layout Mode Selector */}
           <div className="flex items-center gap-0.5 bg-neutral-200/80 p-0.5 rounded-lg border border-neutral-300">
+            <button
+              type="button"
+              onClick={() => onUpdatePage(page.id, { layoutMode: 'cheatsheet' })}
+              title="ชีทต่อเนื่อง: เรียงเนื้อหาเป็นคอลัมน์และประหยัดพื้นที่กระดาษ"
+              aria-pressed={layoutMode === 'cheatsheet'}
+              className={`px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer transition ${
+                layoutMode === 'cheatsheet'
+                  ? 'bg-neutral-900 text-white shadow-xs'
+                  : 'text-neutral-600 hover:text-neutral-900'
+              }`}
+            >
+              ชีทต่อเนื่อง
+            </button>
             <button
               type="button"
               onClick={() => onUpdatePage(page.id, { layoutMode: 'masonry' })}
               title="Masonry: กล่องยาวตามจริง ไม่ยืดความสูง ไม่กินพื้นที่ส่วนอื่น (แนะนำ)"
+              aria-pressed={layoutMode === 'masonry'}
               className={`px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer transition ${
                 layoutMode === 'masonry'
                   ? 'bg-neutral-900 text-white shadow-xs'
@@ -169,6 +197,7 @@ export default function A4Page({
               type="button"
               onClick={() => onUpdatePage(page.id, { layoutMode: 'grid' })}
               title="Grid: จัดแถวความสูงตารางตรงกัน"
+              aria-pressed={layoutMode === 'grid'}
               className={`px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer transition ${
                 layoutMode === 'grid'
                   ? 'bg-neutral-900 text-white shadow-xs'
@@ -222,7 +251,7 @@ export default function A4Page({
         ref={pageRef}
         onDragOver={(e) => e.preventDefault()}
         onDrop={handlePageDropAtEnd}
-        className={`a4-page-container ${isLandscape ? 'landscape' : ''} ${fontSizeConfig.class}`}
+        className={`a4-page-container ${isLandscape ? 'landscape' : ''} ${layoutMode === 'cheatsheet' ? 'cheatsheet-mode' : ''} ${fontSizeConfig.class}`}
       >
         {/* Invisible Height Calibration Marker */}
         <div 
@@ -248,7 +277,7 @@ export default function A4Page({
 
         {/* A4 Page Header Bar */}
         <div 
-          className="border-b-2 pb-1 mb-2 flex justify-between items-end"
+          className="a4-page-header border-b-2 pb-1 mb-2 flex justify-between items-end"
           style={{ borderColor: page.accentColor || '#111827' }}
         >
           <div className="flex-1 mr-2">
@@ -275,7 +304,47 @@ export default function A4Page({
         </div>
 
         {/* Cards Layout: Masonry Flow (Default) or Grid */}
-        {layoutMode === 'masonry' ? (
+        {layoutMode === 'cheatsheet' ? (
+          <div className={`${masonryColsClass} a4-cheatsheet-flow pb-0`}>
+            {page.cards.map((card, cIdx) => (
+              <div
+                key={card.id}
+                className="cheatsheet-flow-item"
+                onDragOver={(e) => handleDragOver(e, cIdx)}
+                onDrop={(e) => handleDrop(e, cIdx)}
+              >
+                <CardItem
+                  card={card}
+                  pageIndex={pageIndex}
+                  cardIndex={cIdx}
+                  totalCards={page.cards.length}
+                  fontSizeConfig={fontSizeConfig}
+                  layoutMode={layoutMode}
+                  onUpdateCard={(cardId, updates) => onUpdateCard(pageIndex, cardId, updates)}
+                  onDeleteCard={(cardId) => onDeleteCard(pageIndex, cardId)}
+                  onDuplicateCard={(cardId) => onDuplicateCard(pageIndex, cardId)}
+                  onMoveCard={(fromIdx, toIdx) => onMoveCard(pageIndex, fromIdx, toIdx)}
+                  onTransferPage={onTransferPage}
+                  onSplitCard={onSplitCard ? (cardId) => onSplitCard(pageIndex, cardId) : undefined}
+                  isDragOver={dragOverCardIndex === cIdx}
+                  onDragStart={handleDragStart}
+                  onDragOver={handleDragOver}
+                  onDrop={handleDrop}
+                />
+              </div>
+            ))}
+
+            <div
+              onClick={() => onAddCard(pageIndex)}
+              className="no-print cheatsheet-flow-item border-2 border-dashed border-neutral-300 hover:border-neutral-900 hover:bg-neutral-50 rounded-lg p-2 flex flex-col items-center justify-center text-center cursor-pointer transition group min-h-[45px]"
+            >
+              <Plus className="w-3.5 h-3.5 text-neutral-400 group-hover:text-neutral-900 group-hover:scale-110 transition" />
+              <span className="text-[8.5px] font-bold text-neutral-500 group-hover:text-neutral-900 mt-0.5">
+                + เพิ่มกล่องสรุปใหม่
+              </span>
+            </div>
+          </div>
+        ) : layoutMode === 'masonry' ? (
           <div className={`${masonryColsClass} pb-6`}>
             {page.cards.map((card, cIdx) => (
               <div 
@@ -290,6 +359,7 @@ export default function A4Page({
                   cardIndex={cIdx}
                   totalCards={page.cards.length}
                   fontSizeConfig={fontSizeConfig}
+                  layoutMode={layoutMode}
                   onUpdateCard={(cardId, updates) => onUpdateCard(pageIndex, cardId, updates)}
                   onDeleteCard={(cardId) => onDeleteCard(pageIndex, cardId)}
                   onDuplicateCard={(cardId) => onDuplicateCard(pageIndex, cardId)}
@@ -329,6 +399,7 @@ export default function A4Page({
                   cardIndex={cIdx}
                   totalCards={page.cards.length}
                   fontSizeConfig={fontSizeConfig}
+                  layoutMode={layoutMode}
                   onUpdateCard={(cardId, updates) => onUpdateCard(pageIndex, cardId, updates)}
                   onDeleteCard={(cardId) => onDeleteCard(pageIndex, cardId)}
                   onDuplicateCard={(cardId) => onDuplicateCard(pageIndex, cardId)}
