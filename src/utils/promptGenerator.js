@@ -17,12 +17,88 @@ export const HIGHLIGHT_COLOR_MAP = {
   yellow: '#fef08a',
   lime: '#bbf7d0',
   green: '#bbf7d0',
+  emerald: '#bbf7d0',
+  mint: '#bbf7d0',
   pink: '#fbcfe8',
+  rose: '#fecdd3',
+  red: '#fecaca',
   sky: '#bae6fd',
   blue: '#bae6fd',
+  cyan: '#bae6fd',
   orange: '#fed7aa',
+  amber: '#fed7aa',
+  gold: '#fef08a',
   purple: '#e9d5ff',
-  violet: '#e9d5ff'
+  violet: '#e9d5ff',
+  lavender: '#e9d5ff',
+  lilac: '#e9d5ff'
+};
+
+/**
+ * Normalizes all AI-generated highlight formats into clean, styled <mark> tags:
+ * - Markdown ==text== -> yellow highlight
+ * - Short tags: [hl=yellow]text[/hl], [mark=green]text[/mark], [highlight=pink]text[/highlight]
+ * - Colorless tags: [hl]text[/hl], [mark]text[/mark], [highlight]text[/highlight] -> default yellow
+ * - HTML <mark> without style -> default yellow
+ */
+export const normalizeHighlightTags = (text) => {
+  if (!text) return '';
+  let result = text;
+
+  // 1. Markdown ==text== syntax (strictly 2 equals, excluding === page markers ===)
+  result = result.replace(/(?<!=)==(?!=)([^\n=]+?)(?<!=)==(?!=)/g, (_m, txt) => {
+    return `<mark style="background-color: #fef08a; color: inherit; padding: 1px 3px; border-radius: 3px;">${txt}</mark>`;
+  });
+
+  // 2. Short tags with color: [hl=yellow]text[/hl], [mark=green]text[/mark], [highlight=pink]text[/highlight]
+  result = result.replace(/\[(?:hl|mark|highlight)=([#a-zA-Z0-9]+)\]([\s\S]*?)\[\/(?:hl|mark|highlight)\]/gi, (_m, col, txt) => {
+    const hex = HIGHLIGHT_COLOR_MAP[col.toLowerCase()] || (col.startsWith('#') ? col : `#${col}`);
+    return `<mark style="background-color: ${hex}; color: inherit; padding: 1px 3px; border-radius: 3px;">${txt}</mark>`;
+  });
+
+  // 3. Short tags without color: [hl]text[/hl], [mark]text[/mark], [highlight]text[/highlight] (default yellow)
+  result = result.replace(/\[(?:hl|mark|highlight)\]([\s\S]*?)\[\/(?:hl|mark|highlight)\]/gi, (_m, txt) => {
+    return `<mark style="background-color: #fef08a; color: inherit; padding: 1px 3px; border-radius: 3px;">${txt}</mark>`;
+  });
+
+  // 4. HTML <mark> without style attribute or with color attribute
+  result = result.replace(/<mark(?!\s+style)(?:\s+color=["']?([#a-zA-Z0-9]+)["']?)?[^>]*>([\s\S]*?)<\/mark>/gi, (_m, col, txt) => {
+    const hex = col ? (HIGHLIGHT_COLOR_MAP[col.toLowerCase()] || (col.startsWith('#') ? col : `#${col}`)) : '#fef08a';
+    return `<mark style="background-color: ${hex}; color: inherit; padding: 1px 3px; border-radius: 3px;">${txt}</mark>`;
+  });
+
+  return result;
+};
+
+/**
+ * Intelligent Auto-Highlight for text where AI forgot to highlight:
+ * Detects key indicator words, quotes, and high-yield terms if the text has 0 highlights.
+ */
+export const autoHighlightText = (text) => {
+  if (!text) return '';
+  let result = text;
+
+  // If text already has highlights (<mark>, ==, [hl), leave it intact
+  if (/<mark/i.test(result) || /(?<!=)==(?!=)[^\n=]+?(?<!=)==(?!=)/.test(result) || /\[(?:hl|mark|highlight)/i.test(result)) {
+    return result;
+  }
+
+  // 1. Highlight quotes "..." or “...”
+  result = result.replace(/(["“])([^"”\n]{2,45})(["”])/g, (_m, open, inner, close) => {
+    return `<mark style="background-color: #fef08a; color: inherit; padding: 1px 3px; border-radius: 3px;">${open}${inner}${close}</mark>`;
+  });
+
+  // 2. Highlight critical exam/warning phrases
+  result = result.replace(/([⚠️🚨]?\s*(?:ออกสอบ|เน้นออกสอบ|อาจารย์เน้น|ข้อควรระวัง|ระวัง:|สำคัญมาก|จำเป็นต้อง)[^\n|.,]{0,35})/gi, (_m, match) => {
+    return `<mark style="background-color: #fbcfe8; color: inherit; padding: 1px 3px; border-radius: 3px;">${match.trim()}</mark>`;
+  });
+
+  // 3. Highlight superlatives (เร็วสุด, ช้าสุด, นิยมสุด, ดีที่สุด)
+  result = result.replace(/([ก-๙a-zA-Z0-9\s]{2,20}(?:เร็วที่สุด|เร็วสุด|ช้าที่สุด|ช้าสุด|นิยมสุด|ดีที่สุด|แม่นยำสูงสุด))/g, (_m, match) => {
+    return `<mark style="background-color: #fef08a; color: inherit; padding: 1px 3px; border-radius: 3px;">${match.trim()}</mark>`;
+  });
+
+  return result;
 };
 
 /**
@@ -44,8 +120,16 @@ export const generateSystemPrompt = ({ delimiter = '---' } = {}) => {
 4. เขียนเป็นภาษาไทย กระชับแบบชีทสรุป ใช้ศัพท์อังกฤษตามต้นฉบับ และรักษาข้อเท็จจริง ตัวเลข และความหมายให้ครบ ห้ามแต่งข้อมูลเพิ่ม
 5. จัดประเด็นที่เกี่ยวข้องให้อยู่บรรทัดเดียวกัน คั่นด้วย " | " เพื่อลดช่องว่างและความสูงของหน้า ใช้บรรทัดใหม่เฉพาะเมื่อขึ้นประเด็นหรือสูตรชุดใหม่
 6. เน้นชื่อศัพท์และคำสำคัญด้วย <b>คำสำคัญ:</b> ใช้ bullet • กับบรรทัดเนื้อหา
-7. ไฮไลท์เฉพาะจุดที่ควรจำหรือเปรียบเทียบด้วยแท็กสีที่แอปรองรับ:
-   <mark style="background-color: #fef08a;">สำคัญ/ออกสอบ</mark>, <mark style="background-color: #bbf7d0;">นิยาม/ข้อดี</mark>, <mark style="background-color: #fbcfe8;">ข้อควรระวัง/ค่าที่เด่น</mark>, <mark style="background-color: #bae6fd;">ประเภท/ตัวอย่าง</mark>, <mark style="background-color: #fed7aa;">สูตร/การคำนวณ</mark>, <mark style="background-color: #e9d5ff;">หลักการ</mark>
+7. 【กฎเหล็ก: บังคับใส่ไฮไลท์สีในทุกกล่อง (สำคัญมาก)】:
+   - ทุกกล่องต้องใส่ไฮไลท์สีอย่างน้อย 1-3 จุด สำหรับคำสำคัญ จุดออกสอบ นิยาม หรือข้อควรระวัง ห้ามส่งกล่องที่ไม่มีไฮไลท์เด็ดขาด
+   - ไวยากรณ์ไฮไลท์ที่ให้ใช้ (เลือกใช้รูปแบบที่เขียนง่ายที่สุด):
+     * ไฮไลท์สีเหลือง (จุดสำคัญ/ออกสอบ): ==ข้อความสำคัญ== หรือ [hl=yellow]ข้อความ[/hl] หรือ <mark>ข้อความ</mark>
+     * ไฮไลท์สีเขียว (นิยาม/ข้อดี): [hl=green]ข้อความ[/hl] หรือ [hl=lime]ข้อความ[/hl]
+     * ไฮไลท์สีชมพู (ข้อควรระวัง/ความเร็ว/จุดเด่น): [hl=pink]ข้อความ[/hl]
+     * ไฮไลท์สีฟ้า (ประเภท/ตัวอย่าง): [hl=blue]ข้อความ[/hl] หรือ [hl=sky]ข้อความ[/hl]
+     * ไฮไลท์สีส้ม (สูตร/คำนวณ): [hl=orange]ข้อความ[/hl]
+     * ไฮไลท์สีม่วง (หลักการ/ทฤษฎี): [hl=purple]ข้อความ[/hl]
+     (หรือใช้ <mark style="background-color: #fef08a;">ข้อความ</mark> ก็ได้เช่นกัน)
 8. สูตรและสมการคณิตศาสตร์ (เว็บรองรับการแสดงผล KaTeX / LaTeX คุณภาพสูงเต็มรูปแบบ):
    - เขียนสูตรด้วยไวยากรณ์ LaTeX มาตรฐาน เช่น \\frac{a}{b}, \\sqrt{x}, \\sum, \\int, \\times, x^2, x_i, \\approx
    - บล็อกสูตรหรือสมการสำคัญ ให้ครอบด้วย [formula]สมการ LaTeX[/formula] หรือ $$สมการ LaTeX$$
@@ -135,12 +219,12 @@ export const compactContentWithPipeAndColor = (text) => {
 export const getSampleUltraCompactNotes = (delim = '---') => {
   return `=== หน้า 1 ===
 ### 1. สถาปัตยกรรมคอมพิวเตอร์ & CPU
-• <b>ALU:</b> <mark style="background-color: #fef08a;">คำนวณคณิตศาสตร์และตรรกะ</mark> | <b>CU:</b> ถอดรหัสคำสั่งและคุมสัญญาณ | <b>Register:</b> <mark style="background-color: #fbcfe8;">ความเร็วสูงสุดใน CPU</mark>
+• <b>ALU:</b> ==คำนวณคณิตศาสตร์และตรรกะ== | <b>CU:</b> ถอดรหัสคำสั่งและคุมสัญญาณ | <b>Register:</b> [hl=pink]ความเร็วสูงสุดใน CPU[/hl]
 • <b>วงรอบการทำงาน:</b> Fetch → Decode → Execute | <b>System Bus:</b> Data, Address, Control
 • [formula]\\text{Cycle Time} = \\frac{1}{\\text{Frequency}}[/formula] | [formula]\\text{CPI} = \\frac{\\text{Cycles}}{\\text{Instruction}}[/formula]
 ${delim}
 ### 2. ลำดับชั้นหน่วยความจำ (Memory Hierarchy)
-• <b>Cache L1-L3:</b> <mark style="background-color: #fef08a;">เร็วสุด ความจุจำกัด</mark> | <b>RAM:</b> หน่วยความจำหลัก Volatile ดับแล้วหาย | <b>SSD/HDD:</b> บันทึกข้อมูลถาวร
+• <b>Cache L1-L3:</b> ==เร็วสุด ความจุจำกัด== | <b>RAM:</b> หน่วยความจำหลัก Volatile ดับแล้วหาย | <b>SSD/HDD:</b> บันทึกข้อมูลถาวร
 • <b>Virtual Memory:</b> ใช้พื้นที่ดิสก์จำลองเป็น RAM | <b>Paging:</b> แบ่งบล็อกขนาดเท่ากัน
 • [formula]\\text{Capacity} = 2^{\\text{AddressLines}} \\times \\text{DataBits}[/formula]
 ${delim}
@@ -154,7 +238,7 @@ ${delim}
 
 === หน้า 2 ===
 ### 5. อัลกอริทึม & Time Complexity (Big-O)
-• <b>O(1):</b> คงที่เข้าถึง Index | <b>O(log n):</b> Binary Search (<mark style="background-color: #bbf7d0;">ต้องเรียงข้อมูลก่อน</mark>) | <b>O(n):</b> Linear Search
+• <b>O(1):</b> คงที่เข้าถึง Index | <b>O(log n):</b> Binary Search ([hl=green]ต้องเรียงข้อมูลก่อน[/hl]) | <b>O(n):</b> Linear Search
 • <b>O(n log n):</b> Merge/Quick Sort (เฉลี่ย) | <b>O(n²):</b> Bubble Sort
 ${delim}
 ### 6. โครงสร้างข้อมูลพื้นฐาน (Data Structures)
@@ -163,7 +247,7 @@ ${delim}
 ${delim}
 ### 7. พื้นฐานระบบเครือข่าย & OSI Model
 • <b>OSI 7 Layers:</b> 1.Physical → 2.Data Link → 3.Network → 4.Transport → 5.Session → 6.Presentation → 7.Application
-• <mark style="background-color: #bae6fd;">TCP:</mark> เชื่อถือได้ ตรวจสอบสูญหาย | <mark style="background-color: #fed7aa;">UDP:</mark> รวดเร็ว ไม่เช็คสูญหาย
+• [hl=blue]TCP:[/hl] เชื่อถือได้ ตรวจสอบสูญหาย | [hl=orange]UDP:[/hl] รวดเร็ว ไม่เช็คสูญหาย
 ${delim}
 ### 8. ความปลอดภัยคอมพิวเตอร์ (CIA Triad)
 • <b>Confidentiality:</b> รักษาความลับ เข้ารหัส | <b>Integrity:</b> ตรวจสอบความถูกต้องด้วย Hash

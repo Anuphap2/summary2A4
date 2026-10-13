@@ -37,6 +37,7 @@ export default function RawTextImporterModal({ isOpen, onClose, onImportChunks }
   const [autoCompactPipe, setAutoCompactPipe] = useState(true);
   const [autoFormula, setAutoFormula] = useState(true);
   const [autoBoldKeys, setAutoBoldKeys] = useState(true);
+  const [autoHighlight, setAutoHighlight] = useState(true);
   
   // Custom manual edit list for chunks
   const [manualChunks, setManualChunks] = useState([]);
@@ -73,9 +74,10 @@ export default function RawTextImporterModal({ isOpen, onClose, onImportChunks }
       delimiter: customDelimiter,
       autoCompactPipe,
       autoFormula,
-      autoBoldKeys
+      autoBoldKeys,
+      autoHighlight
     });
-  }, [rawText, customDelimiter, autoCompactPipe, autoFormula, autoBoldKeys]);
+  }, [rawText, customDelimiter, autoCompactPipe, autoFormula, autoBoldKeys, autoHighlight]);
 
   // Synchronize manual edits with computed chunks (always filter out empty chunks)
   const activeChunks = (hasCustomEdits ? manualChunks : computedChunks).filter(
@@ -515,6 +517,15 @@ ${customDelimiter || '---'}
                     className="rounded accent-neutral-900"
                   />
                   <span>เน้นตัวหนาให้ "คำสำคัญ:" อัตโนมัติ</span>
+                </label>
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={autoHighlight}
+                    onChange={(e) => setAutoHighlight(e.target.checked)}
+                    className="rounded accent-neutral-900"
+                  />
+                  <span>ใส่ไฮไลท์สีให้จุดสำคัญ/ออกสอบอัตโนมัติ</span>
                 </label>
                 <label className="flex items-center gap-1.5 cursor-pointer">
                   <input

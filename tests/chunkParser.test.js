@@ -65,3 +65,45 @@ test('handles consecutive and trailing delimiters without producing empty cards'
   assert.equal(chunks.length, 1);
   assert.equal(chunks[0].title, '1. หัวข้อ');
 });
+
+test('normalizeHighlightTags converts markdown ==text==, [hl=color], [hl], and <mark>', async () => {
+  const { normalizeHighlightTags } = await import('../src/utils/promptGenerator.js');
+
+  const input = '=== หน้า 1 ===\n• ==คำสำคัญที่ออกสอบ== | [hl=green]นิยาม[/hl] | [hl=pink]จุดระวัง[/hl] | [hl]เน้นย้ำ[/hl] | <mark>แท็ก mark</mark>';
+  const normalized = normalizeHighlightTags(input);
+
+  // Should NOT touch page headers
+  assert.ok(normalized.includes('=== หน้า 1 ==='), 'Page header must not be corrupted');
+
+  // Should convert markdown highlight ==text==
+  assert.ok(normalized.includes('<mark style="background-color: #fef08a;'), 'Should convert ==text== to yellow mark');
+  assert.ok(normalized.includes('คำสำคัญที่ออกสอบ'), 'Must retain content');
+
+  // Should convert [hl=green] to green/lime hex
+  assert.ok(normalized.includes('#bbf7d0'), 'Should convert green to #bbf7d0');
+
+  // Should convert [hl=pink] to pink hex
+  assert.ok(normalized.includes('#fbcfe8'), 'Should convert pink to #fbcfe8');
+
+  // Should convert [hl] without color to yellow
+  assert.ok(normalized.includes('เน้นย้ำ'), 'Must retain colorless hl');
+
+  // Should style plain <mark>
+  assert.ok(normalized.includes('แท็ก mark'), 'Must retain and style plain mark');
+});
+
+test('parseRawTextToChunks automatically converts ==text== and applies auto-highlights', () => {
+  const input = `### 1. บทที่ 1
+• ==จุดสำคัญระดับชาติ== | ศัพท์เฉพาะ "Viola-Jones"
+---
+### 2. บทที่ 2
+• ⚠️ อาจารย์เน้นออกสอบ: การคำนวณระยะทาง Euclidean
+`;
+
+  const chunks = parseRawTextToChunks(input, { autoHighlight: true });
+
+  assert.equal(chunks.length, 2);
+  assert.ok(chunks[0].content.includes('<mark style="background-color: #fef08a;'), 'Chunk 0 must have highlight from ==');
+  assert.ok(chunks[0].content.includes('Viola-Jones'), 'Chunk 0 must have auto-highlighted quote');
+  assert.ok(chunks[1].content.includes('<mark style="background-color: #fbcfe8;'), 'Chunk 1 must have auto-highlighted exam warning');
+});

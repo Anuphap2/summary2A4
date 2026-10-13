@@ -18,7 +18,7 @@ import {
   ChevronsDown
 } from 'lucide-react';
 import { COLOR_THEMES } from '../data/defaultData';
-import { compactContentWithPipeAndColor, HIGHLIGHT_COLOR_MAP } from '../utils/promptGenerator';
+import { compactContentWithPipeAndColor, HIGHLIGHT_COLOR_MAP, normalizeHighlightTags } from '../utils/promptGenerator';
 import { renderLatexToHtml, normalizeMathDelimiters } from '../utils/mathRenderer';
 
 export default function CardItem({ 
@@ -78,11 +78,8 @@ export default function CardItem({
     // Normalize LaTeX math delimiters ($$, \[, \(, $, [formula]) and multi-formula pipes
     let normalizedContent = normalizeMathDelimiters(content);
 
-    // Support short highlight tags: [hl=yellow]text[/hl], [hl=pink]text[/hl], etc.
-    normalizedContent = normalizedContent.replace(/\[(?:hl|mark)=([a-zA-Z0-9#]+)\]([\s\S]*?)\[\/(?:hl|mark)\]/gi, (_m, col, txt) => {
-      const hex = HIGHLIGHT_COLOR_MAP[col.toLowerCase()] || (col.startsWith('#') ? col : `#${col}`);
-      return `<mark style="background-color: ${hex}; color: inherit; padding: 1px 3px; border-radius: 3px;">${txt}</mark>`;
-    });
+    // Support all highlight syntaxes (==text==, [hl=color], [hl], <mark>)
+    normalizedContent = normalizeHighlightTags(normalizedContent);
 
     // Split by formula tags [formula]...[/formula] and [formula-inline]...[/formula-inline]
     const parts = normalizedContent.split(/(\[formula\][\s\S]*?\[\/formula\]|\[formula-inline\][\s\S]*?\[\/formula-inline\])/g);

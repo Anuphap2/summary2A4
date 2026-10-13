@@ -1,6 +1,7 @@
 import { 
   compactContentWithPipeAndColor, 
-  HIGHLIGHT_COLOR_MAP 
+  normalizeHighlightTags,
+  autoHighlightText
 } from './promptGenerator.js';
 
 /**
@@ -12,7 +13,8 @@ export const parseRawTextToChunks = (rawText, {
   delimiter = '---',
   autoCompactPipe = true,
   autoFormula = true,
-  autoBoldKeys = true
+  autoBoldKeys = true,
+  autoHighlight = true
 } = {}) => {
   if (!rawText || !rawText.trim()) return [];
 
@@ -167,12 +169,13 @@ export const parseRawTextToChunks = (rawText, {
       });
     }
 
-    // Normalize any highlight syntax from AI
-    body = body.replace(/\[(?:hl|mark|highlight)=([#a-zA-Z0-9]+)\]([\s\S]*?)\[\/(?:hl|mark|highlight)\]/gi, (_m, col, txt) => {
-      const hex = HIGHLIGHT_COLOR_MAP[col.toLowerCase()] || (col.startsWith('#') ? col : `#${col}`);
-      return `<mark style="background-color: ${hex}; color: inherit; padding: 1px 3px; border-radius: 3px;">${txt}</mark>`;
-    });
-    body = body.replace(/<mark(?!\s+style)>/gi, '<mark style="background-color: #fef08a; color: inherit; padding: 1px 3px; border-radius: 3px;">');
+    // Automatic intelligent highlight if enabled and no highlights exist
+    if (autoHighlight) {
+      body = autoHighlightText(body);
+    }
+
+    // Normalize any highlight syntax from AI (==text==, [hl=color], [hl], <mark>)
+    body = normalizeHighlightTags(body);
 
     sections.push({
       id: `chunk-${sections.length}-${title.slice(0, 15).replace(/\s+/g, '_')}`,
