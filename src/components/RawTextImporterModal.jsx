@@ -33,7 +33,7 @@ export default function RawTextImporterModal({ isOpen, onClose, onImportChunks }
 
   // Target Destination & Options
   const [targetDestination, setTargetDestination] = useState('auto'); // 'auto' | 'balance' | 'page-1' | 'page-2'
-  const [importAction, setImportAction] = useState('append'); // 'append' | 'replace'
+  const [importAction, setImportAction] = useState('replace'); // 'replace' | 'append'
   const [autoCompactPipe, setAutoCompactPipe] = useState(true);
   const [autoFormula, setAutoFormula] = useState(true);
   const [autoBoldKeys, setAutoBoldKeys] = useState(true);

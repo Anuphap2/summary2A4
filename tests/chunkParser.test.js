@@ -107,3 +107,17 @@ test('parseRawTextToChunks automatically converts ==text== and applies auto-high
   assert.ok(chunks[0].content.includes('Viola-Jones'), 'Chunk 0 must have auto-highlighted quote');
   assert.ok(chunks[1].content.includes('<mark style="background-color: #fbcfe8;'), 'Chunk 1 must have auto-highlighted exam warning');
 });
+
+test('parseRawTextToChunks sanitizes == in headers and supports multiline highlights', async () => {
+  const input = `### 1. ==กระบวนการ CRISP-DS และการเริ่มต้น EDA==
+• ==คำสำคัญที่ขึ้น
+สองบรรทัด== | รายละเอียด
+`;
+
+  const chunks = parseRawTextToChunks(input);
+  assert.equal(chunks.length, 1);
+  assert.equal(chunks[0].title, '1. กระบวนการ CRISP-DS และการเริ่มต้น EDA', 'Title must not contain ==');
+  assert.ok(chunks[0].content.includes('<mark style="background-color: #fef08a;'), 'Must highlight multiline ==');
+  assert.ok(chunks[0].content.includes('สองบรรทัด'), 'Must preserve content of multiline highlight');
+});
+

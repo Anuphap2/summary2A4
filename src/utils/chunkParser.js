@@ -138,6 +138,14 @@ export const parseRawTextToChunks = (rawText, {
       }
     }
 
+    // Sanitize title: strip markdown highlights (==), tags ([hl]), or HTML markup so titles are clean
+    title = title
+      .replace(/(?<!=)==(?!=)/g, '')
+      .replace(/==/g, '')
+      .replace(/\[\/?(?:hl|mark|highlight)(?:=[^\]]+)?\]/gi, '')
+      .replace(/<\/?(?:mark|b|i)[^>]*>/gi, '')
+      .trim();
+
     // Double check body has content after title extraction
     if (!body) {
       return;

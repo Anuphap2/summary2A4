@@ -242,8 +242,8 @@ export default function CardItem({
           {/* Title with full width and auto-wrapping */}
           <textarea
             ref={titleTextareaRef}
-            value={card.title}
-            onChange={(e) => onUpdateCard(card.id, { title: e.target.value })}
+            value={card.title ? card.title.replace(/==/g, '') : ''}
+            onChange={(e) => onUpdateCard(card.id, { title: e.target.value.replace(/==/g, '') })}
             rows={1}
             style={{ color: currentTheme.accent }}
             placeholder="หัวข้อกล่อง..."

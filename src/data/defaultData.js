@@ -120,30 +120,30 @@ export const FONT_SIZES = [
 export const LINE_HEIGHTS = [
   {
     id: 'dense',
-    name: 'ระยะบรรทัด: แน่น (1.28)',
-    value: '1.28',
-    lineGap: '1.5px',
+    name: 'ระยะบรรทัด: แน่น (1.35)',
+    value: '1.35',
+    lineGap: '2px',
     desc: 'อัดเนื้อหาแน่น ไม่ทับกัน'
   },
   {
     id: 'compact',
-    name: 'ระยะบรรทัด: กระชับ (1.38)',
-    value: '1.38',
-    lineGap: '2px',
+    name: 'ระยะบรรทัด: กระชับ (1.45)',
+    value: '1.45',
+    lineGap: '2.5px',
     desc: 'กระชับพอดีสำหรับชีท A4'
   },
   {
     id: 'normal',
-    name: 'ระยะบรรทัด: ปกติ (1.48) - แนะนำ',
-    value: '1.48',
-    lineGap: '2.5px',
+    name: 'ระยะบรรทัด: ปกติ (1.55) - แนะนำ',
+    value: '1.55',
+    lineGap: '3.5px',
     desc: 'มาตรฐาน สวยงาม วรรณยุกต์โปร่ง'
   },
   {
     id: 'relaxed',
-    name: 'ระยะบรรทัด: โปร่งสบาย (1.60)',
-    value: '1.60',
-    lineGap: '4px',
+    name: 'ระยะบรรทัด: โปร่งสบาย (1.70)',
+    value: '1.70',
+    lineGap: '5px',
     desc: 'โปร่งสบาย อ่านง่ายสุด'
   }
 ];
